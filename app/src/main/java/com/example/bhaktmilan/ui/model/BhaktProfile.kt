@@ -1,7 +1,9 @@
 package com.example.bhaktmilan.ui.model
 
-import java.io.Serializable
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
 
+@Parcelize
 data class BhaktProfile(
     val id: Int,
     val name: String,
@@ -16,4 +18,4 @@ data class BhaktProfile(
     val about: String,
     val profileImageUrl: String,
     val gender: String
-) : Serializable
+) : Parcelable

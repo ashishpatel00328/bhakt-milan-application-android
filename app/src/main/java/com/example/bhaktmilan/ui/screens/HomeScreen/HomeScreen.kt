@@ -8,6 +8,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.bhaktmilan.ui.model.BhaktProfile
 import androidx.compose.material3.FilterChip
+import coil.compose.AsyncImage
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FavoriteBorder
+
+import androidx.compose.ui.graphics.Color
+
+
+
+
+
 
 
 
@@ -22,6 +45,9 @@ fun HomeScreen(
     var selectedSampraday by remember { mutableStateOf("All") }
     var selectedGender by remember { mutableStateOf("All") }
     var expanded by remember { mutableStateOf(false) }
+    val likedMap = remember { mutableStateMapOf<Int, Boolean>() }
+    val shortlistedMap = remember { mutableStateMapOf<Int, Boolean>() }
+
 
 // ---------- DROPDOWN DATA ----------
     val sampradayList = listOf("All") +
@@ -118,21 +144,91 @@ fun HomeScreen(
         // 📋 PROFILE LIST
         LazyColumn(
             modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             items(filteredProfiles) { profile ->
+
+                val isLiked = likedMap[profile.id] == true
+                val isShortlisted = shortlistedMap[profile.id] == true
+
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onProfileClick(profile) }
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(profile.name, style = MaterialTheme.typography.titleMedium)
-                        Text("${profile.age} yrs • ${profile.city}")
-                        Text(profile.sampraday)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onProfileClick(profile) } // ✅ YAHI CLICK
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        // Profile Image
+                        AsyncImage(
+                            model = profile.profileImageUrl,
+                            contentDescription = profile.name,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        // Info Section
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                profile.name,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text("${profile.age} yrs • ${profile.city}")
+                            Text(
+                                profile.sampraday,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
+
+                        // Action Icons (Separate clicks)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+
+                            IconButton(onClick = {
+                                likedMap[profile.id] = !isLiked
+                            }) {
+                                Icon(
+                                    imageVector = if (isLiked)
+                                        Icons.Filled.Favorite
+                                    else
+                                        Icons.Filled.FavoriteBorder,
+                                    contentDescription = "Send Interest",
+                                    tint = if (isLiked) Color.Red else Color.Black
+                                )
+                            }
+
+                            IconButton(onClick = {
+                                shortlistedMap[profile.id] = !isShortlisted
+                            }) {
+                                Icon(
+                                    imageVector = if (isShortlisted)
+                                        Icons.Filled.Star
+                                    else
+                                        Icons.Filled.Star,
+                                    contentDescription = "Shortlist",
+                                    tint = if (isShortlisted) Color(0xFFFFC107) else Color.Black
+                                )
+                            }
+                        }
                     }
                 }
+
             }
         }
+
+
+
+
+
     }
 }
