@@ -3,9 +3,14 @@ package com.example.bhaktmilan
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.material3.Scaffold
 import androidx.navigation.compose.rememberNavController
+import com.example.bhaktmilan.navigation.AppRoutes
 import com.example.bhaktmilan.ui.navigation.AppNavHost
+import com.example.bhaktmilan.ui.navigation.BottomBar
 import com.example.bhaktmilan.ui.theme.BhaktMilanTheme
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
 
 class MainActivity : ComponentActivity() {
 
@@ -16,14 +21,22 @@ class MainActivity : ComponentActivity() {
         val isOnboardingDone = prefs.getBoolean("onboarding_done", false)
 
         setContent {
-            BhaktMilanTheme {
-                val navController = rememberNavController()
+            val navController = rememberNavController()
+
+            Scaffold(
+                bottomBar = {
+                    BottomBar(navController)
+                }
+            ) { paddingValues ->
 
                 AppNavHost(
                     navController = navController,
-                    startDestination = if (isOnboardingDone) "home" else "onboarding"
+                    startDestination = AppRoutes.HOME,
+                    modifier = Modifier.padding(paddingValues)
                 )
             }
         }
+
+
     }
 }

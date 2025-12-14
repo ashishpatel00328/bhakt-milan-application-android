@@ -1,31 +1,34 @@
 package com.example.bhaktmilan.ui.navigation
 
 import HomeScreen
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import com.example.bhaktmilan.ui.screens.onboarding.OnboardingScreen
 import com.example.bhaktmilan.navigation.AppRoutes
 import androidx.navigation.NavHostController
 import com.example.bhaktmilan.ui.data.fakeProfiles
-import com.example.bhaktmilan.ui.model.Bhakt
-import com.example.bhaktmilan.ui.model.BhaktProfile
-import com.example.bhaktmilan.ui.screens.profile.ProfileDetailScreen
+import com.example.bhaktmilan.ui.screens.requests.RequestsScreen
+import com.example.bhaktmilan.ui.screens.shortlist.ShortlistScreen
+import com.example.bhaktmilan.ui.screens.myprofile.MyProfileScreen
 
 
 
 @Composable
 fun AppNavHost(
     navController: NavHostController,
-    startDestination: String
+    startDestination: String,
+    modifier: Modifier = Modifier
+
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
+        modifier = modifier
     ) {
 
-        composable("home") {
+        composable(AppRoutes.HOME) {
             HomeScreen(
                 profiles = fakeProfiles,
                 onProfileClick = { profile ->
@@ -33,23 +36,21 @@ fun AppNavHost(
                         ?.savedStateHandle
                         ?.set("profile", profile)
 
-                    navController.navigate("profile")
+                    navController.navigate(AppRoutes.PROFILE)
                 }
             )
         }
 
-        composable("profile") {
-            val profile =
-                navController.previousBackStackEntry
-                    ?.savedStateHandle
-                    ?.get<BhaktProfile>("profile")
-
-            profile?.let {
-                ProfileDetailScreen(profile = it)
-            }
+        composable(AppRoutes.PROFILE) {
+            MyProfileScreen()
         }
 
-
+        composable(AppRoutes.REQUESTS) {
+            RequestsScreen()
+        }
+        composable("shortlist") {
+            ShortlistScreen()
+        }
 
 
     }
