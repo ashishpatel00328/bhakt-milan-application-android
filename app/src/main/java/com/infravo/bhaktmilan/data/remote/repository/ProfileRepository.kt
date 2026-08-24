@@ -3,6 +3,7 @@ package com.infravo.bhaktmilan.data.remote.repository
 import com.infravo.bhaktmilan.data.network.NetworkResult
 import com.infravo.bhaktmilan.data.remote.api.ApiService
 import com.infravo.bhaktmilan.data.remote.request.CreateProfileRequest
+import com.infravo.bhaktmilan.data.remote.request.UpdateProfileRequest
 import com.infravo.bhaktmilan.data.remote.response.ProfileDetailResponse
 import com.infravo.bhaktmilan.data.remote.response.ProfileListResponse
 import javax.inject.Inject
@@ -59,6 +60,15 @@ class ProfileRepository @Inject constructor(
 
         return safeApiCall {
             apiService.getMyProfile()
+        }
+    }
+
+    suspend fun updateProfile(
+        request: UpdateProfileRequest
+    ): NetworkResult<ProfileDetailResponse> {
+
+        return safeApiCall {
+            apiService.updateProfile(request)
         }
     }
 }

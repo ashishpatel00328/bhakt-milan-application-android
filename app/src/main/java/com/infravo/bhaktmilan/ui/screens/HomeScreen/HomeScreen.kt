@@ -6,10 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,19 +19,12 @@ import com.infravo.bhaktmilan.ui.model.ProfileListUiModel
 @Composable
 fun HomeScreen(
     profiles: List<ProfileListUiModel>,
-    onProfileClick: (ProfileListUiModel) -> Unit
+    onProfileClick: (ProfileListUiModel) -> Unit,
+    onSendInterest: (ProfileListUiModel) -> Unit
 ) {
 
     var searchQuery by remember {
         mutableStateOf("")
-    }
-
-    val likedMap = remember {
-        mutableStateMapOf<Int, Boolean>()
-    }
-
-    val shortlistedMap = remember {
-        mutableStateMapOf<Int, Boolean>()
     }
 
     val filteredProfiles = profiles.filter {
@@ -44,7 +33,6 @@ fun HomeScreen(
             searchQuery,
             ignoreCase = true
         ) ||
-
                 it.location.contains(
                     searchQuery,
                     ignoreCase = true
@@ -81,134 +69,121 @@ fun HomeScreen(
                 )
             }
 
-            return
-        }
+        } else {
 
-        LazyColumn(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
+            LazyColumn(
+                modifier = Modifier.padding(
+                    start = 12.dp,
+                    end = 12.dp,
+                    bottom = 12.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
 
-            items(filteredProfiles) { profile ->
+                items(
+                    items = filteredProfiles,
+                    key = { profile -> profile.id }
+                ) { profile ->
 
-                val isLiked =
-                    likedMap[profile.id] == true
-
-                val isShortlisted =
-                    shortlistedMap[profile.id] == true
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            onProfileClick(profile)
-                        },
-                    shape = RoundedCornerShape(20.dp),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 6.dp
-                    )
-                ) {
-
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onProfileClick(profile)
+                            },
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = 6.dp
+                        )
                     ) {
 
-                        AsyncImage(
-                            model = profile.profilePhoto,
-                            contentDescription = profile.fullName,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(CircleShape)
-                        )
-
-                        Spacer(
-                            modifier = Modifier.width(12.dp)
-                        )
-
                         Column(
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.padding(16.dp)
                         ) {
 
-                            Text(
-                                text = profile.fullName,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-
-                            Spacer(
-                                modifier = Modifier.height(4.dp)
-                            )
-
-                            Text(
-                                text = "${profile.age} • ${profile.location}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-
-                            Spacer(
-                                modifier = Modifier.height(4.dp)
-                            )
-
-                            Text(
-                                text = profile.height,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
-                            )
-
-                            Spacer(
-                                modifier = Modifier.height(2.dp)
-                            )
-
-                            Text(
-                                text = profile.education,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-
-                            Spacer(
-                                modifier = Modifier.height(2.dp)
-                            )
-
-                            Text(
-                                text = profile.occupation,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
 
-                                IconButton(
-                                    onClick = {
-                                        likedMap[profile.id] = !isLiked
-                                    }
+                                AsyncImage(
+                                    model = profile.profilePhoto,
+                                    contentDescription = profile.fullName,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .clip(CircleShape)
+                                )
+
+                                Spacer(
+                                    modifier = Modifier.width(12.dp)
+                                )
+
+                                Column(
+                                    modifier = Modifier.weight(1f)
                                 ) {
 
-                                    Icon(
-                                        imageVector = if (isLiked)
-                                            Icons.Default.Favorite
-                                        else
-                                            Icons.Default.FavoriteBorder,
-                                        contentDescription = "Like",
-                                        tint = if (isLiked)
-                                            Color.Red
-                                        else
-                                            Color.Gray
+                                    Text(
+                                        text = profile.fullName,
+                                        style = MaterialTheme.typography.titleMedium
                                     )
-                                }
 
-                                IconButton(
-                                    onClick = {
-                                        shortlistedMap[profile.id] = !isShortlisted
+                                    Spacer(
+                                        modifier = Modifier.height(4.dp)
+                                    )
+
+                                    Text(
+                                        text = "${profile.age} • ${profile.location}",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+
+                                    Spacer(
+                                        modifier = Modifier.height(4.dp)
+                                    )
+
+                                    Text(
+                                        text = profile.height,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray
+                                    )
+
+                                    Spacer(
+                                        modifier = Modifier.height(2.dp)
+                                    )
+
+                                    if (profile.education.isNotBlank()) {
+                                        Text(
+                                            text = profile.education,
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
                                     }
-                                ) {
 
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = "Shortlist",
-                                        tint = if (isShortlisted)
-                                            Color(0xFFFFC107)
-                                        else
-                                            Color.Gray
+                                    Spacer(
+                                        modifier = Modifier.height(2.dp)
                                     )
+
+                                    if (profile.occupation.isNotBlank()) {
+                                        Text(
+                                            text = profile.occupation,
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
                                 }
+                            }
+
+                            Spacer(
+                                modifier = Modifier.height(16.dp)
+                            )
+
+                            Button(
+                                onClick = {
+                                    onSendInterest(profile)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+
+                                Text(
+                                    text = "Send Interest"
+                                )
                             }
                         }
                     }

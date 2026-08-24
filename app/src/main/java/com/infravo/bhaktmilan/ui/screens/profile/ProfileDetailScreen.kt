@@ -4,10 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,17 +14,37 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.infravo.bhaktmilan.data.remote.cache.LocationCache
 import com.infravo.bhaktmilan.data.remote.cache.MastersCache
+import com.infravo.bhaktmilan.ui.screens.premium.PremiumGate
+import com.infravo.bhaktmilan.ui.viewmodel.InteractionViewModel
+import com.infravo.bhaktmilan.ui.viewmodel.PremiumViewModel
 import com.infravo.bhaktmilan.ui.viewmodel.ProfileDetailViewModel
+import com.infravo.bhaktmilan.ui.screens.interactions.SendInterestDialog
 
 @Composable
 fun ProfileDetailScreen(
     profileCode: String,
-    viewModel: ProfileDetailViewModel = hiltViewModel()
+    viewModel: ProfileDetailViewModel = hiltViewModel(),
+    interactionViewModel: InteractionViewModel = hiltViewModel(),
+    premiumViewModel: PremiumViewModel = hiltViewModel()
 ) {
 
     val uiState by viewModel.uiState.collectAsState()
 
+    val interactionState by
+    interactionViewModel.uiState.collectAsState()
+
+    val premiumState by
+    premiumViewModel.uiState.collectAsState()
+
     val context = LocalContext.current
+
+    var showInterestDialog by remember {
+        mutableStateOf(false)
+    }
+
+    var interestMessage by remember {
+        mutableStateOf("")
+    }
 
     // ==========================================
     // Load Profile
@@ -36,20 +53,19 @@ fun ProfileDetailScreen(
     LaunchedEffect(profileCode) {
 
         viewModel.loadProfile(profileCode)
-
     }
 
     // ==========================================
-    // Error
+    // Profile Error
     // ==========================================
 
     LaunchedEffect(uiState.error) {
 
-        uiState.error?.let {
+        uiState.error?.let { message ->
 
             Toast.makeText(
                 context,
-                it,
+                message,
                 Toast.LENGTH_SHORT
             ).show()
 
@@ -58,10 +74,58 @@ fun ProfileDetailScreen(
     }
 
     // ==========================================
-    // UI State
+    // Interaction Error
+    // ==========================================
+
+    LaunchedEffect(interactionState.error) {
+
+        interactionState.error?.let { message ->
+
+            Toast.makeText(
+                context,
+                message,
+                Toast.LENGTH_SHORT
+            ).show()
+
+            interactionViewModel.clearError()
+        }
+    }
+
+    // ==========================================
+    // Interaction Success
+    // ==========================================
+
+    LaunchedEffect(
+        interactionState.lastActionSuccess
+    ) {
+
+        if (interactionState.lastActionSuccess) {
+
+            interactionState.message?.let { message ->
+
+                Toast.makeText(
+                    context,
+                    message,
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            showInterestDialog = false
+            interestMessage = ""
+
+            interactionViewModel.clearActionState()
+        }
+    }
+
+    // ==========================================
+    // UI
     // ==========================================
 
     when {
+
+        // ==========================================
+        // Loading
+        // ==========================================
 
         uiState.isLoading -> {
 
@@ -71,9 +135,12 @@ fun ProfileDetailScreen(
             ) {
 
                 CircularProgressIndicator()
-
             }
         }
+
+        // ==========================================
+        // Profile Loaded
+        // ==========================================
 
         uiState.profile != null -> {
 
@@ -82,13 +149,15 @@ fun ProfileDetailScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(
+                        rememberScrollState()
+                    )
                     .padding(16.dp)
             ) {
 
-                // =========================
-                // BASIC INFO
-                // =========================
+                // ==========================================
+                // PROFILE HEADER
+                // ==========================================
 
                 Spacer(
                     modifier = Modifier.height(12.dp)
@@ -96,10 +165,14 @@ fun ProfileDetailScreen(
 
                 AsyncImage(
                     model = profile.profile_photo,
-                    contentDescription = profile.full_name,
+                    contentDescription =
+                        profile.full_name ?: "Profile",
+
                     modifier = Modifier
                         .size(140.dp)
-                        .align(Alignment.CenterHorizontally)
+                        .align(
+                            Alignment.CenterHorizontally
+                        )
                 )
 
                 Spacer(
@@ -111,7 +184,8 @@ fun ProfileDetailScreen(
                     modifier = Modifier.align(
                         Alignment.CenterHorizontally
                     ),
-                    style = MaterialTheme.typography.headlineSmall
+                    style =
+                        MaterialTheme.typography.headlineSmall
                 )
 
                 Spacer(
@@ -123,7 +197,8 @@ fun ProfileDetailScreen(
                     modifier = Modifier.align(
                         Alignment.CenterHorizontally
                     ),
-                    style = MaterialTheme.typography.bodyMedium
+                    style =
+                        MaterialTheme.typography.bodyMedium
                 )
 
                 Spacer(
@@ -136,43 +211,44 @@ fun ProfileDetailScreen(
                     modifier = Modifier.height(16.dp)
                 )
 
-                // =========================
+                // ==========================================
                 // BASIC INFORMATION
-                // =========================
+                // ==========================================
 
-                SectionTitle("Basic Information")
-
-                InfoRow(
-                    "Age",
-                    profile.age.toString()
+                SectionTitle(
+                    "Basic Information"
                 )
 
                 InfoRow(
-                    "Gender",
-                    MastersCache.getGenderName(
-                        profile.gender
-                    )
+                    label = "Age",
+                    value =
+                        profile.age?.toString()
+                            ?: "-"
                 )
 
                 InfoRow(
-                    "Marital Status",
-                    MastersCache.getMaritalStatusName(
-                        profile.marital_status
-                    )
+                    label = "Gender",
+                    value =
+                        MastersCache.getGenderName(
+                            profile.gender
+                        )
+                )
+
+                InfoRow(
+                    label = "Marital Status",
+                    value =
+                        MastersCache
+                            .getMaritalStatusName(
+                                profile.marital_status
+                            )
                 )
 
                 InfoRow(
                     label = "Active",
-                    value = if (profile.is_active == true) {
-                        "Yes"
-                    } else {
-                        "No"
-                    }
-                )
+                    value = when (
+                        profile.is_active
+                    ) {
 
-                InfoRow(
-                    "Manglik",
-                    when (profile.manglik) {
                         true -> "Yes"
                         false -> "No"
                         null -> "-"
@@ -180,8 +256,21 @@ fun ProfileDetailScreen(
                 )
 
                 InfoRow(
-                    "About Me",
-                    profile.about_me ?: "-"
+                    label = "Manglik",
+                    value = when (
+                        profile.manglik
+                    ) {
+
+                        true -> "Yes"
+                        false -> "No"
+                        null -> "-"
+                    }
+                )
+
+                InfoRow(
+                    label = "About Me",
+                    value =
+                        profile.about_me ?: "-"
                 )
 
                 Spacer(
@@ -194,60 +283,76 @@ fun ProfileDetailScreen(
                     modifier = Modifier.height(20.dp)
                 )
 
-                // =========================
+                // ==========================================
                 // PERSONAL INFORMATION
-                // =========================
+                // ==========================================
 
-                SectionTitle("Personal Information")
-
-                InfoRow(
-                    "Date of Birth",
-                    profile.date_of_birth ?: "-"
+                SectionTitle(
+                    "Personal Information"
                 )
 
                 InfoRow(
-                    "Height",
-                    profile.height_cm?.let {
-                        "$it cm"
-                    } ?: "-"
+                    label = "Date of Birth",
+                    value =
+                        profile.date_of_birth
+                            ?: "-"
                 )
 
                 InfoRow(
-                    "Weight",
-                    profile.weight_kg?.let {
-                        "$it kg"
-                    } ?: "-"
+                    label = "Height",
+                    value =
+                        profile.height_cm?.let {
+                            "$it cm"
+                        } ?: "-"
                 )
 
                 InfoRow(
-                    "Blood Group",
-                    MastersCache.getBloodGroupName(
-                        profile.blood_group
-                    )
+                    label = "Weight",
+                    value =
+                        profile.weight_kg?.let {
+                            "$it kg"
+                        } ?: "-"
                 )
 
                 InfoRow(
-                    "Diet Preference",
-                    MastersCache.getDietPreferenceName(
-                        profile.diet_preference
-                    )
+                    label = "Blood Group",
+                    value =
+                        MastersCache
+                            .getBloodGroupName(
+                                profile.blood_group
+                            )
+                )
+
+                InfoRow(
+                    label = "Diet Preference",
+                    value =
+                        MastersCache
+                            .getDietPreferenceName(
+                                profile.diet_preference
+                            )
                 )
 
                 InfoRow(
                     label = "Mother Tongue",
-                    value = profile.mother_tongue ?: "-"
+                    value =
+                        profile.mother_tongue
+                            ?: "-"
                 )
 
                 InfoRow(
-                    "Disability",
-                    MastersCache.getDisabilityName(
-                        profile.disability
-                    )
+                    label = "Disability",
+                    value =
+                        MastersCache
+                            .getDisabilityName(
+                                profile.disability
+                            )
                 )
 
                 InfoRow(
-                    "Birth Place",
-                    profile.birth_place ?: "-"
+                    label = "Birth Place",
+                    value =
+                        profile.birth_place
+                            ?: "-"
                 )
 
                 Spacer(
@@ -260,45 +365,54 @@ fun ProfileDetailScreen(
                     modifier = Modifier.height(20.dp)
                 )
 
-                // =========================
+                // ==========================================
                 // RELIGIOUS INFORMATION
-                // =========================
+                // ==========================================
 
-                SectionTitle("Religious Information")
+                SectionTitle(
+                    "Religious Information"
+                )
 
                 InfoRow(
                     label = "Sampraday",
-                    value = profile.sampraday ?: "-"
+                    value =
+                        profile.sampraday ?: "-"
                 )
 
                 InfoRow(
                     label = "Guru",
-                    value = profile.guru ?: "-"
+                    value =
+                        profile.guru ?: "-"
                 )
 
                 InfoRow(
                     label = "Caste",
-                    value = profile.caste ?: "-"
+                    value =
+                        profile.caste ?: "-"
                 )
 
                 InfoRow(
                     label = "Sub Caste",
-                    value = profile.sub_caste ?: "-"
+                    value =
+                        profile.sub_caste ?: "-"
                 )
 
                 InfoRow(
                     label = "Gotra",
-                    value = profile.gotra ?: "-"
+                    value =
+                        profile.gotra ?: "-"
                 )
 
                 InfoRow(
                     label = "Nakshatra",
-                    value = profile.nakshatra ?: "-"
+                    value =
+                        profile.nakshatra ?: "-"
                 )
 
                 InfoRow(
                     label = "Zodiac",
-                    value = profile.zodiac ?: "-"
+                    value =
+                        profile.zodiac ?: "-"
                 )
 
                 Spacer(
@@ -311,25 +425,30 @@ fun ProfileDetailScreen(
                     modifier = Modifier.height(20.dp)
                 )
 
-                // =========================
+                // ==========================================
                 // EDUCATION & CAREER
-                // =========================
+                // ==========================================
 
-                SectionTitle("Education & Career")
+                SectionTitle(
+                    "Education & Career"
+                )
 
                 InfoRow(
                     label = "Education",
-                    value = profile.education ?: "-"
+                    value =
+                        profile.education ?: "-"
                 )
 
                 InfoRow(
                     label = "Occupation",
-                    value = profile.occupation ?: "-"
+                    value =
+                        profile.occupation ?: "-"
                 )
 
                 InfoRow(
-                    "Annual Income",
-                    profile.annual_income ?: "-"
+                    label = "Annual Income",
+                    value =
+                        profile.annual_income ?: "-"
                 )
 
                 Spacer(
@@ -342,54 +461,71 @@ fun ProfileDetailScreen(
                     modifier = Modifier.height(20.dp)
                 )
 
-                // =========================
+                // ==========================================
                 // FAMILY INFORMATION
-                // =========================
+                // ==========================================
 
-                SectionTitle("Family Information")
-
-                InfoRow(
-                    "Father Name",
-                    profile.father_name ?: "-"
+                SectionTitle(
+                    "Family Information"
                 )
 
                 InfoRow(
-                    "Mother Name",
-                    profile.mother_name ?: "-"
+                    label = "Father Name",
+                    value =
+                        profile.father_name ?: "-"
                 )
 
                 InfoRow(
-                    label = "Occupation",
-                    value = profile.father_occupation ?: "-"
+                    label = "Mother Name",
+                    value =
+                        profile.mother_name ?: "-"
                 )
 
                 InfoRow(
-                    "Married Brothers",
-                    profile.married_brothers?.toString()
-                        ?: "-"
+                    label = "Father Occupation",
+                    value =
+                        profile.father_occupation
+                            ?: "-"
                 )
 
                 InfoRow(
-                    "Married Sisters",
-                    profile.married_sisters?.toString()
-                        ?: "-"
+                    label = "Married Brothers",
+                    value =
+                        profile.married_brothers
+                            ?.toString()
+                            ?: "-"
                 )
 
                 InfoRow(
-                    "Unmarried Brothers",
-                    profile.unmarried_brothers?.toString()
-                        ?: "-"
+                    label = "Married Sisters",
+                    value =
+                        profile.married_sisters
+                            ?.toString()
+                            ?: "-"
                 )
 
                 InfoRow(
-                    "Unmarried Sisters",
-                    profile.unmarried_sisters?.toString()
-                        ?: "-"
+                    label = "Unmarried Brothers",
+                    value =
+                        profile.unmarried_brothers
+                            ?.toString()
+                            ?: "-"
                 )
 
                 InfoRow(
-                    "Family Satsangi",
-                    when (profile.family_is_satsangi) {
+                    label = "Unmarried Sisters",
+                    value =
+                        profile.unmarried_sisters
+                            ?.toString()
+                            ?: "-"
+                )
+
+                InfoRow(
+                    label = "Family Satsangi",
+                    value = when (
+                        profile.family_is_satsangi
+                    ) {
+
                         true -> "Yes"
                         false -> "No"
                         null -> "-"
@@ -406,38 +542,50 @@ fun ProfileDetailScreen(
                     modifier = Modifier.height(20.dp)
                 )
 
-                // =========================
+                // ==========================================
                 // LOCATION
-                // =========================
+                // ==========================================
 
-                SectionTitle("Location")
-
-                InfoRow(
-                    "Country",
-                    LocationCache.getCountryName(
-                        profile.country
-                    )
+                SectionTitle(
+                    "Location"
                 )
 
                 InfoRow(
-                    "State",
-                    LocationCache.getStateName(
-                        countryId = profile.country,
-                        stateId = profile.state
-                    )
+                    label = "Country",
+                    value =
+                        LocationCache.getCountryName(
+                            profile.country
+                        )
                 )
 
                 InfoRow(
-                    "City",
-                    LocationCache.getCityName(
-                        stateId = profile.state,
-                        cityId = profile.city
-                    )
+                    label = "State",
+                    value =
+                        LocationCache.getStateName(
+                            countryId =
+                                profile.country,
+
+                            stateId =
+                                profile.state
+                        )
                 )
 
                 InfoRow(
-                    "Birth Place",
-                    profile.birth_place ?: "-"
+                    label = "City",
+                    value =
+                        LocationCache.getCityName(
+                            stateId =
+                                profile.state,
+
+                            cityId =
+                                profile.city
+                        )
+                )
+
+                InfoRow(
+                    label = "Birth Place",
+                    value =
+                        profile.birth_place ?: "-"
                 )
 
                 Spacer(
@@ -450,39 +598,211 @@ fun ProfileDetailScreen(
                     modifier = Modifier.height(20.dp)
                 )
 
-                // =========================
+                // ==========================================
                 // CONTACT
-                // =========================
+                // ==========================================
 
-                SectionTitle("Contact")
-
-                InfoRow(
-                    "WhatsApp",
-                    profile.whatsapp_number ?: "-"
+                SectionTitle(
+                    "Contact"
                 )
 
                 InfoRow(
-                    "Profile Managed By",
-                    MastersCache.getProfileManagedByName(
-                        profile.profile_managed_by
+                    label = "WhatsApp",
+                    value =
+                        profile.whatsapp_number
+                            ?: "-"
+                )
+
+                InfoRow(
+                    label = "Profile Managed By",
+                    value =
+                        MastersCache
+                            .getProfileManagedByName(
+                                profile.profile_managed_by
+                            )
+                )
+
+                Spacer(
+                    modifier = Modifier.height(24.dp)
+                )
+
+                // ==========================================
+// SEND INTEREST
+// ==========================================
+
+                Spacer(
+                    modifier = Modifier.height(24.dp)
+                )
+
+                PremiumGate(
+
+                    subscription =
+                        premiumState.subscription,
+
+                    plans =
+                        premiumState.plans,
+
+                    selectedPlanId =
+                        premiumState.selectedPlanId,
+
+                    isSubmitting =
+                        premiumState.isSubscribing,
+
+                    subscribeSuccess =
+                        premiumState.subscribeSuccess,
+
+                    // ==========================================
+                    // Fresh Premium Check
+                    // ==========================================
+
+                    onCheckPremium = {
+
+                        premiumViewModel
+                            .getLatestSubscription()
+                    },
+
+                    // ==========================================
+                    // Premium Plan
+                    // ==========================================
+
+                    onPlanSelected = { planId ->
+
+                        premiumViewModel
+                            .selectPlan(planId)
+                    },
+
+                    // ==========================================
+                    // Premium Request
+                    // ==========================================
+
+                    onPremiumRequest = {
+
+                        premiumViewModel
+                            .subscribe()
+                    },
+
+                    onClearSubscribeSuccess = {
+
+                        premiumViewModel
+                            .clearSubscribeSuccess()
+                    },
+
+                    // ==========================================
+                    // Actual Protected Action
+                    // ==========================================
+
+                    onProtectedAction = {
+
+                        showInterestDialog = true
+                    },
+
+                    // ==========================================
+                    // Button
+                    // ==========================================
+
+                    content = { onClick ->
+
+                        Button(
+                            modifier =
+                                Modifier.fillMaxWidth(),
+
+                            enabled =
+                                !interactionState
+                                    .isActionLoading,
+
+                            onClick = onClick
+                        ) {
+
+                            if (
+                                interactionState
+                                    .isActionLoading
+                            ) {
+
+                                CircularProgressIndicator(
+                                    modifier =
+                                        Modifier.size(20.dp)
+                                )
+
+                            } else {
+
+                                Text(
+                                    text = "Send Interest"
+                                )
+                            }
+                        }
+                    }
+                )
+
+                // ==========================================
+// Send Interest Dialog
+// ==========================================
+
+                if (showInterestDialog) {
+
+                    SendInterestDialog(
+
+                        message = interestMessage,
+
+                        isLoading =
+                            interactionState.isActionLoading,
+
+                        error =
+                            interactionState.error,
+
+                        onMessageChange = { message ->
+
+                            interestMessage = message
+                        },
+
+                        onSend = {
+
+                            profile.id?.let { profileId ->
+
+                                interactionViewModel.sendInterest(
+                                    receiverProfileId = profileId,
+                                    message = interestMessage.trim()
+                                )
+                            }
+                        },
+
+                        onDismiss = {
+
+                            if (
+                                !interactionState.isActionLoading
+                            ) {
+
+                                showInterestDialog = false
+
+                                interestMessage = ""
+
+                                interactionViewModel.clearError()
+                            }
+                        }
                     )
-                )
-
+                }
                 Spacer(
                     modifier = Modifier.height(20.dp)
                 )
             }
         }
 
+        // ==========================================
+        // Profile Not Found
+        // ==========================================
+
         else -> {
 
             Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier.fillMaxSize(),
+
+                contentAlignment =
+                    Alignment.Center
             ) {
 
-                Text("Profile not found")
-
+                Text(
+                    text = "Profile not found"
+                )
             }
         }
     }
@@ -493,13 +813,14 @@ fun ProfileDetailScreen(
 // ==========================================
 
 @Composable
-fun SectionTitle(
+private fun SectionTitle(
     title: String
 ) {
 
     Text(
         text = title,
-        style = MaterialTheme.typography.titleLarge
+        style =
+            MaterialTheme.typography.titleLarge
     )
 
     Spacer(
@@ -512,7 +833,7 @@ fun SectionTitle(
 // ==========================================
 
 @Composable
-fun InfoRow(
+private fun InfoRow(
     label: String,
     value: String
 ) {
@@ -520,18 +841,27 @@ fun InfoRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(
+                vertical = 6.dp
+            ),
+
+        horizontalArrangement =
+            Arrangement.SpaceBetween
     ) {
 
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium
+            style =
+                MaterialTheme.typography.bodyMedium
         )
 
         Text(
-            text = if (value.isBlank()) "-" else value,
-            style = MaterialTheme.typography.bodyMedium
+            text = value.ifBlank {
+                "-"
+            },
+
+            style =
+                MaterialTheme.typography.bodyMedium
         )
     }
 }

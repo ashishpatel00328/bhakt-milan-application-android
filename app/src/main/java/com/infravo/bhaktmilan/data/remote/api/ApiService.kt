@@ -1,7 +1,9 @@
 package com.infravo.bhaktmilan.data.remote.api
 
+import com.infravo.bhaktmilan.data.remote.response.Interest
 import com.infravo.bhaktmilan.data.remote.request.CreateProfileRequest
 import com.infravo.bhaktmilan.data.remote.request.SendOtpRequest
+import com.infravo.bhaktmilan.data.remote.request.UpdateProfileRequest
 import com.infravo.bhaktmilan.data.remote.request.VerifyOtpRequest
 import com.infravo.bhaktmilan.data.remote.response.MasterItem
 import com.infravo.bhaktmilan.data.remote.response.MastersResponse
@@ -13,9 +15,19 @@ import com.infravo.bhaktmilan.data.remote.response.MasterListResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import com.infravo.bhaktmilan.data.remote.request.SubscribePremiumRequest
+import com.infravo.bhaktmilan.data.remote.response.PremiumPlansResponse
+import com.infravo.bhaktmilan.data.remote.response.MySubscriptionResponse
+import com.infravo.bhaktmilan.data.remote.response.SubscribePremiumResponse
+import com.infravo.bhaktmilan.data.remote.request.InterestRequest
+import com.infravo.bhaktmilan.data.remote.response.InterestListResponse
+import com.infravo.bhaktmilan.data.remote.response.InterestResponse
+
+
 
 interface ApiService {
 
@@ -47,6 +59,11 @@ interface ApiService {
     @POST("profile/")
     suspend fun createProfile(
         @Body request: CreateProfileRequest
+    ): Response<ProfileDetailResponse>
+
+    @PATCH("profile/")
+    suspend fun updateProfile(
+        @Body request: UpdateProfileRequest
     ): Response<ProfileDetailResponse>
 
     @GET("profile/profiles/")
@@ -84,6 +101,55 @@ interface ApiService {
     suspend fun getCities(
         @Query("state") stateId: Int
     ): Response<MasterListResponse>
+    // =========================
+    // Premium
+    // =========================
+
+    @GET("premium/plans/")
+    suspend fun getPremiumPlans():
+            Response<PremiumPlansResponse>
+
+    @GET("premium/my-subscription/")
+    suspend fun getMySubscription():
+            Response<MySubscriptionResponse>
+
+    @POST("premium/subscribe/")
+    suspend fun subscribePremium(
+        @Body request: SubscribePremiumRequest
+    ): Response<SubscribePremiumResponse>
+
+
+// =========================
+// Interactions - Interest
+// =========================
+
+    @POST("interactions/interests/")
+    suspend fun sendInterest(
+        @Body request: InterestRequest
+    ): Response<InterestResponse>
+
+    @POST("interactions/interests/{interestId}/accept/")
+    suspend fun acceptInterest(
+        @Path("interestId") interestId: Int
+    ): Response<InterestResponse>
+
+    @POST("interactions/interests/{interestId}/reject/")
+    suspend fun rejectInterest(
+        @Path("interestId") interestId: Int
+    ): Response<InterestResponse>
+
+    @POST("interactions/interests/{interestId}/cancel/")
+    suspend fun cancelInterest(
+        @Path("interestId") interestId: Int
+    ): Response<InterestResponse>
+
+    @GET("interactions/interests/sent/")
+    suspend fun getSentInterests():
+            Response<InterestListResponse>
+
+    @GET("interactions/interests/received/")
+    suspend fun getReceivedInterests():
+            Response<InterestListResponse>
 
 // =========================
 // Guru

@@ -3,6 +3,7 @@ package com.infravo.bhaktmilan.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.infravo.bhaktmilan.data.mapper.toCreateProfileRequest
+import com.infravo.bhaktmilan.data.mapper.toUpdateProfileRequest
 import com.infravo.bhaktmilan.data.network.NetworkResult
 import com.infravo.bhaktmilan.data.remote.cache.LocationCache
 import com.infravo.bhaktmilan.data.remote.cache.MastersCache
@@ -281,5 +282,60 @@ class OnboardingViewModel @Inject constructor(
             _uiState.value.copy(
                 isCreated = false
             )
+    }
+
+    fun updateProfile(
+        form: OnboardingFormData
+    ) {
+
+        viewModelScope.launch {
+
+            _uiState.value = _uiState.value.copy(
+                isSubmitting = true,
+                error = null,
+                isCreated = false
+            )
+
+            try {
+
+                val request =
+                    form.toUpdateProfileRequest()
+
+                when (
+                    val result =
+                        profileRepository.updateProfile(request)
+                ) {
+
+                    is NetworkResult.Success -> {
+
+                        _uiState.value =
+                            _uiState.value.copy(
+                                isSubmitting = false,
+                                isCreated = true
+                            )
+                    }
+
+                    is NetworkResult.Error -> {
+
+                        _uiState.value =
+                            _uiState.value.copy(
+                                isSubmitting = false,
+                                error = result.message
+                            )
+                    }
+
+                    is NetworkResult.Loading -> Unit
+                }
+
+            } catch (e: Exception) {
+
+                _uiState.value =
+                    _uiState.value.copy(
+                        isSubmitting = false,
+                        error = e.message
+                            ?: "Unable to update profile."
+                    )
+            }
+        }
     }
 }

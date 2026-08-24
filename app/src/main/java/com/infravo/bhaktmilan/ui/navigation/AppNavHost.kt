@@ -16,6 +16,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.infravo.bhaktmilan.data.mapper.toOnboardingFormData
 import com.infravo.bhaktmilan.ui.navigation.AppRoutes
 import com.infravo.bhaktmilan.ui.screens.auth.LoginScreen
 import com.infravo.bhaktmilan.ui.screens.auth.OtpScreen
@@ -28,6 +29,8 @@ import com.infravo.bhaktmilan.ui.screens.shortlist.ShortlistScreen
 import com.infravo.bhaktmilan.ui.viewmodel.ProfileViewModel
 import com.infravo.bhaktmilan.ui.viewmodel.SessionViewModel
 import com.infravo.bhaktmilan.ui.viewmodel.UserViewModel
+import com.infravo.bhaktmilan.ui.screens.premium.PremiumScreen
+
 
 @Composable
 fun AppNavHost(
@@ -85,6 +88,10 @@ fun AppNavHost(
         // Home
         // ==========================================
 
+        // ==========================================
+// Home
+// ==========================================
+
         composable(AppRoutes.HOME) {
 
             val profileViewModel: ProfileViewModel =
@@ -95,8 +102,19 @@ fun AppNavHost(
 
             HomeScreen(
                 profiles = uiState.profiles,
+
                 onProfileClick = { profile ->
 
+                    navController.navigate(
+                        "${AppRoutes.USER_PROFILE}/${profile.profileId}"
+                    )
+                },
+
+                onSendInterest = { profile ->
+
+                    // Open profile detail.
+                    // Premium check + Send Interest flow
+                    // is handled inside ProfileDetailScreen.
                     navController.navigate(
                         "${AppRoutes.USER_PROFILE}/${profile.profileId}"
                     )
@@ -145,9 +163,93 @@ fun AppNavHost(
 
             MyProfileScreen(
                 uiState = uiState,
-                onClearError =
-                    myProfileViewModel::clearError
+                onClearError = myProfileViewModel::clearError,
+
+                onEditProfile = {
+                    navController.navigate(
+                        AppRoutes.EDIT_PROFILE
+                    )
+                },
+
+                onPremiumClick = {
+                    navController.navigate(
+                        AppRoutes.PREMIUM
+                    )
+                }
             )
+        }
+
+        // ==========================================
+// Edit Profile
+// ==========================================
+
+        composable(AppRoutes.EDIT_PROFILE) {
+
+            val myProfileViewModel: UserViewModel =
+                hiltViewModel()
+
+            val uiState by
+            myProfileViewModel.uiState.collectAsState()
+
+            LaunchedEffect(Unit) {
+                myProfileViewModel.loadMyProfile()
+            }
+
+            val profile = uiState.profile
+
+            when {
+
+                uiState.isLoading -> {
+
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+
+                        CircularProgressIndicator()
+                    }
+                }
+
+                profile != null -> {
+
+                    OnboardingScreen(
+                        initialForm =
+                            profile.toOnboardingFormData(),
+
+                        isEditMode = true,
+
+                        onSuccess = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+
+                uiState.error != null -> {
+
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+
+                        Text(
+                            text =
+                                uiState.error
+                                    ?: "Unable to load profile"
+                        )
+                    }
+                }
+
+                else -> {
+
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+
+                        Text("Profile not found")
+                    }
+                }
+            }
         }
 
         // ==========================================
@@ -170,10 +272,14 @@ fun AppNavHost(
         // Onboarding
         // ==========================================
 
+        // ==========================================
+        // Onboarding
+        // ==========================================
+
         composable(AppRoutes.ONBOARDING) {
 
             OnboardingScreen(
-                onProfileCreated = {
+                onSuccess = {
 
                     navController.navigate(
                         AppRoutes.HOME
@@ -249,5 +355,16 @@ fun AppNavHost(
                 }
             }
         }
+        // ==========================================
+        // Premium
+        // ==========================================
+
+        composable(AppRoutes.PREMIUM) {
+
+            PremiumScreen()
+        }
+
+
+
     }
 }

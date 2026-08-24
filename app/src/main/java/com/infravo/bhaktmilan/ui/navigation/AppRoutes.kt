@@ -8,6 +8,10 @@ object AppRoutes {
     const val OTP = "otp"
     const val ONBOARDING = "onboarding"
 
+    const val EDIT_PROFILE = "edit_profile"
+
+    const val PREMIUM = "premium"
+
     // Main
     const val HOME = "home"
     const val REQUESTS = "requests"

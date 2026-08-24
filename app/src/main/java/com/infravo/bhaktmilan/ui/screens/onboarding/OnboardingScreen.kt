@@ -39,14 +39,18 @@ import com.infravo.bhaktmilan.ui.viewmodel.OnboardingViewModel
 
 @Composable
 fun OnboardingScreen(
-    onProfileCreated: () -> Unit,
+    onSuccess: () -> Unit,
+    initialForm: OnboardingFormData? = null,
+    isEditMode: Boolean = false,
     viewModel: OnboardingViewModel = hiltViewModel()
 ) {
 
     val uiState by viewModel.uiState.collectAsState()
 
-    var form by remember {
-        mutableStateOf(OnboardingFormData())
+    var form by remember(initialForm) {
+        mutableStateOf(
+            initialForm ?: OnboardingFormData()
+        )
     }
 
     var validationError by remember {
@@ -54,7 +58,22 @@ fun OnboardingScreen(
     }
 
     // ==========================================
-    // Profile Created
+    // Load dependent data for edit mode
+    // ==========================================
+
+    LaunchedEffect(initialForm) {
+
+        initialForm?.country?.let { countryId ->
+            viewModel.loadStates(countryId)
+        }
+
+        initialForm?.state?.let { stateId ->
+            viewModel.loadCities(stateId)
+        }
+    }
+
+    // ==========================================
+    // Success
     // ==========================================
 
     LaunchedEffect(uiState.isCreated) {
@@ -63,14 +82,16 @@ fun OnboardingScreen(
 
             viewModel.clearCreatedState()
 
-            onProfileCreated()
+            onSuccess()
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
@@ -82,7 +103,8 @@ fun OnboardingScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
+                containerColor =
+                    MaterialTheme.colorScheme.primaryContainer
             )
         ) {
 
@@ -91,7 +113,11 @@ fun OnboardingScreen(
             ) {
 
                 Text(
-                    text = "Create Your Profile",
+                    text = if (isEditMode) {
+                        "Edit Your Profile"
+                    } else {
+                        "Create Your Profile"
+                    },
                     style = MaterialTheme.typography.headlineSmall
                 )
 
@@ -100,7 +126,11 @@ fun OnboardingScreen(
                 )
 
                 Text(
-                    text = "Help us find the right match for you",
+                    text = if (isEditMode) {
+                        "Update your profile information"
+                    } else {
+                        "Help us find the right match for you"
+                    },
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -437,7 +467,15 @@ fun OnboardingScreen(
             }
         )
 
-
+        InputField(
+            label = "Birth Place",
+            value = form.birthPlace,
+            onChange = {
+                form = form.copy(
+                    birthPlace = it
+                )
+            }
+        )
 
         // ==========================================
         // EDUCATION & CAREER
@@ -562,18 +600,8 @@ fun OnboardingScreen(
         )
 
         // ==========================================
-        // OTHER
+        // CONTACT / OTHER
         // ==========================================
-
-        InputField(
-            label = "Birth Place",
-            value = form.birthPlace,
-            onChange = {
-                form = form.copy(
-                    birthPlace = it
-                )
-            }
-        )
 
         InputField(
             label = "Mother Tongue",
@@ -621,7 +649,11 @@ fun OnboardingScreen(
 
                 if (validationError == null) {
 
-                    viewModel.createProfile(form)
+                    if (isEditMode) {
+                        viewModel.updateProfile(form)
+                    } else {
+                        viewModel.createProfile(form)
+                    }
                 }
             }
         ) {
@@ -634,7 +666,13 @@ fun OnboardingScreen(
 
             } else {
 
-                Text("Complete Profile")
+                Text(
+                    text = if (isEditMode) {
+                        "Save Changes"
+                    } else {
+                        "Complete Profile"
+                    }
+                )
             }
         }
 
