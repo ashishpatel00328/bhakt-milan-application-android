@@ -33,6 +33,27 @@ data class PremiumUiState(
 
     val subscribeSuccess: Boolean = false,
 
+    /**
+     * Actual message returned by the
+     * premium subscribe API.
+     *
+     * Example:
+     * "Premium request created successfully."
+     *
+     * or:
+     * "You already have a pending premium request."
+     */
+    val subscribeResponseMessage: String? = null,
+
+    /**
+     * HTTP status code returned by the
+     * premium subscribe API.
+     *
+     * Used by the UI to distinguish
+     * successful request from HTTP 409.
+     */
+    val subscribeResponseCode: Int? = null,
+
     // ==========================================
     // Error
     // ==========================================

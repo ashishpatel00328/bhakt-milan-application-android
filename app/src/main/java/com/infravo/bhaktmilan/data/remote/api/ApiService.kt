@@ -68,7 +68,10 @@ interface ApiService {
 
     @GET("profile/profiles/")
     suspend fun getProfiles(
-        @Query("page") page: Int
+        @Query("page") page: Int = 1,
+        @Query("gender") gender: String? = null,
+        @Query("new") new: Boolean? = null,
+        @Query("active_now") activeNow: Boolean? = null
     ): Response<ProfileListResponse>
 
     @GET("profile/profiles/{profileId}/")

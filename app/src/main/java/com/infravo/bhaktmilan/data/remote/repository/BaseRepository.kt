@@ -3,6 +3,7 @@ package com.infravo.bhaktmilan.data.remote.repository
 import com.infravo.bhaktmilan.data.network.NetworkResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import retrofit2.Response
 
 open class BaseRepository {
@@ -31,18 +32,45 @@ open class BaseRepository {
                             code = response.code(),
                             message = "Response body is empty."
                         )
-
                     }
 
                 } else {
 
+                    /*
+                     * IMPORTANT:
+                     * Backend error response body contains the actual
+                     * API message, especially for 409 Conflict.
+                     */
+                    val errorBody =
+                        response.errorBody()
+                            ?.string()
+
+                    val apiMessage =
+                        try {
+
+                            if (!errorBody.isNullOrBlank()) {
+
+                                JSONObject(errorBody)
+                                    .optString("message")
+                                    .takeIf {
+                                        it.isNotBlank()
+                                    }
+
+                            } else {
+                                null
+                            }
+
+                        } catch (e: Exception) {
+                            null
+                        }
+
                     NetworkResult.Error(
                         code = response.code(),
-                        message = response.message().ifBlank {
-                            "Something went wrong."
-                        }
+                        message = apiMessage
+                            ?: response.message().ifBlank {
+                                "Something went wrong."
+                            }
                     )
-
                 }
 
             } catch (e: Exception) {
@@ -51,11 +79,7 @@ open class BaseRepository {
                     message = e.localizedMessage
                         ?: "Network error occurred."
                 )
-
             }
-
         }
-
     }
-
 }

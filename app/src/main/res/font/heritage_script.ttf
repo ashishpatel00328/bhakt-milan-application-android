@@ -1,0 +1,6 @@
+val HeritageScript = FontFamily(
+    Font(
+        R.font.heritage_script,
+        FontWeight.Normal
+    )
+)

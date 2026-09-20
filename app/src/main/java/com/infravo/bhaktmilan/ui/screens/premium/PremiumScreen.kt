@@ -1,387 +1,653 @@
 package com.infravo.bhaktmilan.ui.screens.premium
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import android.util.Log
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.infravo.bhaktmilan.ui.viewmodel.PremiumViewModel
+
+private const val TAG = "PremiumScreen"
 
 @Composable
 fun PremiumScreen(
     viewModel: PremiumViewModel = hiltViewModel()
 ) {
 
-    val uiState by
-    viewModel.uiState.collectAsState()
+    // =========================================================
+    // UI STATE
+    //
+    // Using collectAsState() intentionally here.
+    // This guarantees the active composition observes the
+    // StateFlow without lifecycle gating.
+    // =========================================================
+
+    val uiState by viewModel.uiState.collectAsState()
+
+    // =========================================================
+    // PAYMENT DIALOG
+    // =========================================================
 
     var showPaymentDialog by remember {
         mutableStateOf(false)
     }
 
-    // ==========================================
-    // Subscribe Success
-    // ==========================================
+    // =========================================================
+    // SCREEN ENTER / EXIT DEBUG
+    // =========================================================
 
-    LaunchedEffect(uiState.subscribeSuccess) {
+    DisposableEffect(Unit) {
 
-        if (uiState.subscribeSuccess) {
+        Log.d(
+            TAG,
+            "################################################"
+        )
 
-            showPaymentDialog = false
+        Log.d(
+            TAG,
+            "### PremiumScreen ENTERED / COMPOSED ###"
+        )
 
-            viewModel.clearSubscribeSuccess()
+        Log.d(
+            TAG,
+            "### ViewModel instance = ${viewModel.hashCode()} ###"
+        )
 
-            viewModel.refreshSubscription()
+        Log.d(
+            TAG,
+            "################################################"
+        )
+
+        onDispose {
+
+            Log.w(
+                TAG,
+                "################################################"
+            )
+
+            Log.w(
+                TAG,
+                "### PremiumScreen DISPOSED ###"
+            )
+
+            Log.w(
+                TAG,
+                "### ViewModel instance = ${viewModel.hashCode()} ###"
+            )
+
+            Log.w(
+                TAG,
+                "################################################"
+            )
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    // =========================================================
+    // EVERY UI STATE CHANGE
+    // =========================================================
+
+    LaunchedEffect(
+        uiState.isLoading,
+        uiState.isSubscribing,
+        uiState.selectedPlanId,
+        uiState.subscribeSuccess,
+        uiState.subscribeResponseCode,
+        uiState.subscribeResponseMessage,
+        uiState.error,
+        uiState.subscription
     ) {
 
-        // ==========================================
-        // Header
-        // ==========================================
+        Log.d(
+            TAG,
+            """
+            =================================================
+            PREMIUM SCREEN -> UI STATE RECEIVED
+            =================================================
+            ViewModel       = ${viewModel.hashCode()}
+            isLoading       = ${uiState.isLoading}
+            isSubscribing   = ${uiState.isSubscribing}
+            selectedPlanId  = ${uiState.selectedPlanId}
+            success         = ${uiState.subscribeSuccess}
+            responseCode    = ${uiState.subscribeResponseCode}
+            responseMessage = ${uiState.subscribeResponseMessage}
+            error           = ${uiState.error}
+            subscription    = ${uiState.subscription}
+            paymentDialog   = $showPaymentDialog
+            =================================================
+            """.trimIndent()
+        )
+    }
 
-        Text(
-            text = "Premium",
-            style = MaterialTheme.typography.headlineSmall
+    // =========================================================
+    // SPECIFIC 409 WATCHER
+    // =========================================================
+
+    LaunchedEffect(
+        uiState.subscribeResponseCode
+    ) {
+
+        Log.d(
+            TAG,
+            "409 WATCHER -> responseCode=${uiState.subscribeResponseCode}"
         )
 
-        Spacer(
-            modifier = Modifier.padding(
-                top = 6.dp
+        if (
+            uiState.subscribeResponseCode == 409
+        ) {
+
+            Log.w(
+                TAG,
+                "################################################"
             )
+
+            Log.w(
+                TAG,
+                "### 409 REACHED PREMIUM SCREEN ###"
+            )
+
+            Log.w(
+                TAG,
+                "### message=${uiState.subscribeResponseMessage} ###"
+            )
+
+            Log.w(
+                TAG,
+                "### closing payment dialog ###"
+            )
+
+            Log.w(
+                TAG,
+                "################################################"
+            )
+
+            showPaymentDialog = false
+        }
+    }
+
+    // =========================================================
+    // SUCCESS WATCHER
+    // =========================================================
+
+    LaunchedEffect(
+        uiState.subscribeSuccess
+    ) {
+
+        Log.d(
+            TAG,
+            "SUCCESS WATCHER -> success=${uiState.subscribeSuccess}"
         )
 
-        Text(
-            text =
-                "Unlock premium features and send interest requests.",
-            style = MaterialTheme.typography.bodyMedium
-        )
+        if (
+            uiState.subscribeSuccess
+        ) {
 
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
+            Log.d(
+                TAG,
+                "SUCCESS -> closing payment dialog"
+            )
 
-        // ==========================================
-        // Loading
-        // ==========================================
+            showPaymentDialog = false
+        }
+    }
 
-        if (uiState.isLoading) {
+    // =========================================================
+    // MAIN UI
+    // =========================================================
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                contentAlignment = Alignment.Center
-            ) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize()
+    ) {
 
-                CircularProgressIndicator()
+        // =====================================================
+        // HEADER
+        // =====================================================
+
+        item {
+
+            PremiumHeader()
+        }
+
+        // =====================================================
+        // HERO
+        // =====================================================
+
+        item {
+
+            PremiumHeroCard()
+        }
+
+        // =====================================================
+        // ERROR
+        // =====================================================
+
+        uiState.error
+            ?.takeIf {
+                it.isNotBlank()
+            }
+            ?.let { errorMessage ->
+
+                item {
+
+                    Log.d(
+                        TAG,
+                        "Rendering ErrorCard"
+                    )
+
+                    ErrorCard(
+                        message = errorMessage
+                    )
+                }
+            }
+
+        // =====================================================
+        // LOADING
+        // =====================================================
+
+        if (
+            uiState.isLoading
+        ) {
+
+            item {
+
+                Log.d(
+                    TAG,
+                    "Rendering LoadingCard"
+                )
+
+                LoadingCard()
             }
         }
 
-        // ==========================================
-        // Error
-        // ==========================================
-
-        uiState.error?.let { message ->
-
-            Text(
-                text = message,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(
-                    bottom = 12.dp
-                )
-            )
-        }
-
-        // ==========================================
-        // Current Subscription
-        // ==========================================
+        // =====================================================
+        // CURRENT SUBSCRIPTION
+        // =====================================================
 
         uiState.subscription?.let { subscription ->
 
-            Card(
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            item {
 
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(6.dp)
-                ) {
+                Log.d(
+                    TAG,
+                    """
+                    Rendering SubscriptionStatusCard
+                    isPremium=${subscription.is_premium}
+                    status=${subscription.status}
+                    plan=${subscription.plan}
+                    daysLeft=${subscription.days_left}
+                    startsAt=${subscription.starts_at}
+                    expiresAt=${subscription.expires_at}
+                    """.trimIndent()
+                )
 
-                    when {
-
-                        // ==================================
-                        // ACTIVE
-                        // ==================================
-
-                        subscription.is_premium -> {
-
-                            Text(
-                                text = "Premium Active",
-                                style =
-                                    MaterialTheme.typography.titleMedium
-                            )
-
-                            subscription.plan?.let { plan ->
-
-                                Text(
-                                    text = "Plan: $plan"
-                                )
-                            }
-
-                            Text(
-                                text =
-                                    "Days left: ${subscription.days_left}"
-                            )
-
-                            subscription.starts_at?.let {
-
-                                Text(
-                                    text =
-                                        "Started: $it"
-                                )
-                            }
-
-                            subscription.expires_at?.let {
-
-                                Text(
-                                    text =
-                                        "Expires: $it"
-                                )
-                            }
-                        }
-
-                        // ==================================
-                        // PENDING
-                        // ==================================
-
-                        subscription.status.equals(
-                            "PENDING",
-                            ignoreCase = true
-                        ) -> {
-
-                            Text(
-                                text =
-                                    "Premium Request Pending",
-                                style =
-                                    MaterialTheme.typography.titleMedium
-                            )
-
-                            Text(
-                                text =
-                                    "Your premium request is waiting " +
-                                            "for admin approval."
-                            )
-
-                            Text(
-                                text =
-                                    "Please do not submit another request."
-                            )
-                        }
-
-                        // ==================================
-                        // OTHER / EXPIRED
-                        // ==================================
-
-                        else -> {
-
-                            Text(
-                                text =
-                                    "Premium Not Active",
-                                style =
-                                    MaterialTheme.typography.titleMedium
-                            )
-
-                            subscription.status?.let {
-
-                                Text(
-                                    text =
-                                        "Status: $it"
-                                )
-                            }
-                        }
-                    }
-                }
+                SubscriptionStatusCard(
+                    subscription = subscription
+                )
             }
         }
 
-        Spacer(
-            modifier = Modifier.height(20.dp)
-        )
+        // =====================================================
+        // BENEFITS
+        // =====================================================
 
-        // ==========================================
-        // Plans
-        // ==========================================
+        item {
 
-        Text(
-            text = "Available Plans",
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        Spacer(
-            modifier = Modifier.height(10.dp)
-        )
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement =
-                Arrangement.spacedBy(12.dp)
-        ) {
-
-            items(
-                items = uiState.plans,
-                key = { plan ->
-                    plan.id
-                }
-            ) { plan ->
-
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement =
-                            Arrangement.spacedBy(6.dp)
-                    ) {
-
-                        Text(
-                            text = plan.name,
-                            style =
-                                MaterialTheme.typography.titleMedium
-                        )
-
-                        Text(
-                            text = "₹${plan.price}",
-                            style =
-                                MaterialTheme.typography.headlineSmall
-                        )
-
-                        Text(
-                            text =
-                                "${plan.duration_days} days"
-                        )
-
-                        OutlinedButton(
-                            modifier =
-                                Modifier.fillMaxWidth(),
-
-                            enabled =
-                                !viewModel
-                                    .isPremiumRequestDisabled(),
-
-                            onClick = {
-
-                                viewModel.selectPlan(
-                                    plan.id
-                                )
-
-                                showPaymentDialog = true
-                            }
-                        ) {
-
-                            when {
-
-                                uiState.subscription
-                                    ?.is_premium == true -> {
-
-                                    Text("Premium Active")
-                                }
-
-                                uiState.subscription
-                                    ?.status.equals(
-                                        "PENDING",
-                                        ignoreCase = true
-                                    ) -> {
-
-                                    Text("Request Pending")
-                                }
-
-                                uiState.isSubscribing -> {
-
-                                    Text("Submitting...")
-                                }
-
-                                uiState.selectedPlanId ==
-                                        plan.id -> {
-
-                                    Text("Selected")
-                                }
-
-                                else -> {
-
-                                    Text("Select Plan")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            PremiumBenefitsCard()
         }
 
-        // ==========================================
-        // Payment Dialog
-        // ==========================================
+        // =====================================================
+        // PLAN HEADER
+        // =====================================================
 
-        if (showPaymentDialog) {
+        item {
 
-            PremiumPaymentDialog(
+            PlansHeader()
+        }
 
-                plans = uiState.plans,
+        // =====================================================
+        // PLANS
+        // =====================================================
 
-                selectedPlanId =
-                    uiState.selectedPlanId,
+        items(
+            items = uiState.plans,
+            key = { plan ->
+                plan.id
+            }
+        ) { plan ->
+
+            val isPremium =
+                uiState.subscription?.is_premium == true
+
+            val isSubmitting =
+                uiState.isSubscribing
+
+            Log.d(
+                TAG,
+                """
+                Rendering PremiumPlanCard
+                planId=${plan.id}
+                name=${plan.name}
+                price=${plan.price}
+                duration=${plan.duration_days}
+                isPremium=$isPremium
+                isSubmitting=$isSubmitting
+                selectedPlanId=${uiState.selectedPlanId}
+                """.trimIndent()
+            )
+
+            PremiumPlanCard(
+
+                plan = plan,
+
+                isSelected =
+                    uiState.selectedPlanId == plan.id,
+
+                isPremium =
+                    isPremium,
 
                 isSubmitting =
-                    uiState.isSubscribing,
+                    isSubmitting,
 
-                onPlanSelected = { planId ->
+                onClick = {
+
+                    Log.d(
+                        TAG,
+                        """
+                        =================================================
+                        PLAN CLICKED
+                        =================================================
+                        planId=${plan.id}
+                        name=${plan.name}
+                        isPremium=$isPremium
+                        isSubmitting=$isSubmitting
+                        =================================================
+                        """.trimIndent()
+                    )
+
+                    // ---------------------------------------------
+                    // PREMIUM USER
+                    // ---------------------------------------------
+
+                    if (
+                        isPremium
+                    ) {
+
+                        Log.d(
+                            TAG,
+                            "PLAN CLICK IGNORED -> already premium"
+                        )
+
+                        return@PremiumPlanCard
+                    }
+
+                    // ---------------------------------------------
+                    // REQUEST ALREADY RUNNING
+                    // ---------------------------------------------
+
+                    if (
+                        isSubmitting
+                    ) {
+
+                        Log.d(
+                            TAG,
+                            "PLAN CLICK IGNORED -> request running"
+                        )
+
+                        return@PremiumPlanCard
+                    }
+
+                    // ---------------------------------------------
+                    // SELECT PLAN
+                    // ---------------------------------------------
+
+                    Log.d(
+                        TAG,
+                        "Calling viewModel.selectPlan(${plan.id})"
+                    )
 
                     viewModel.selectPlan(
-                        planId
+                        plan.id
                     )
-                },
 
-                onPremiumRequest = {
+                    // ---------------------------------------------
+                    // OPEN PAYMENT DIALOG
+                    // ---------------------------------------------
 
-                    viewModel.subscribe()
-                },
+                    showPaymentDialog = true
 
-                onDismiss = {
-
-                    if (!uiState.isSubscribing) {
-
-                        showPaymentDialog = false
-                    }
+                    Log.d(
+                        TAG,
+                        "showPaymentDialog=true"
+                    )
                 }
+            )
+        }
+    }
+
+    // =========================================================
+    // RESPONSE FLAGS
+    // =========================================================
+
+    val is409 =
+        uiState.subscribeResponseCode == 409
+
+    val hasOtherResponse =
+        uiState.subscribeResponseCode != null &&
+                uiState.subscribeResponseCode != 409
+
+    // =========================================================
+    // FINAL DIALOG DEBUG
+    // =========================================================
+
+    Log.d(
+        TAG,
+        """
+        =================================================
+        DIALOG RENDER CHECK
+        =================================================
+        ViewModel        = ${viewModel.hashCode()}
+        responseCode     = ${uiState.subscribeResponseCode}
+        responseMessage  = ${uiState.subscribeResponseMessage}
+        is409            = $is409
+        hasOtherResponse = $hasOtherResponse
+        paymentDialog    = $showPaymentDialog
+        isSubscribing    = ${uiState.isSubscribing}
+        =================================================
+        """.trimIndent()
+    )
+
+    // =========================================================
+    // 409 POPUP
+    // =========================================================
+
+    if (
+        is409
+    ) {
+
+        Log.w(
+            TAG,
+            "################################################"
+        )
+
+        Log.w(
+            TAG,
+            "### ABOUT TO RENDER PremiumPendingDialog ###"
+        )
+
+        Log.w(
+            TAG,
+            "### CODE = 409 ###"
+        )
+
+        Log.w(
+            TAG,
+            "### MESSAGE = ${uiState.subscribeResponseMessage} ###"
+        )
+
+        Log.w(
+            TAG,
+            "################################################"
+        )
+
+        PremiumPendingDialog(
+
+            onDismiss = {
+
+                Log.d(
+                    TAG,
+                    "409 POPUP -> DISMISS CLICKED"
+                )
+
+                Log.d(
+                    TAG,
+                    "409 POPUP -> calling clearSubscribeResponse()"
+                )
+
+                viewModel.clearSubscribeResponse()
+            }
+        )
+    }
+
+    // =========================================================
+    // OTHER RESPONSE
+    // =========================================================
+
+    if (
+        hasOtherResponse
+    ) {
+
+        Log.e(
+            TAG,
+            """
+            =================================================
+            OTHER PREMIUM RESPONSE
+            =================================================
+            code=${uiState.subscribeResponseCode}
+            message=${uiState.subscribeResponseMessage}
+            =================================================
+            """.trimIndent()
+        )
+    }
+
+    // =========================================================
+    // PAYMENT DIALOG
+    //
+    // 409 always has priority.
+    // =========================================================
+
+    if (
+        showPaymentDialog &&
+        !is409
+    ) {
+
+        Log.d(
+            TAG,
+            ">>> RENDERING PremiumPaymentDialog <<<"
+        )
+
+        PremiumPaymentDialog(
+
+            plans =
+                uiState.plans,
+
+            selectedPlanId =
+                uiState.selectedPlanId,
+
+            isSubmitting =
+                uiState.isSubscribing,
+
+            // -------------------------------------------------
+            // PLAN SELECTED
+            // -------------------------------------------------
+
+            onPlanSelected = { planId ->
+
+                Log.d(
+                    TAG,
+                    "PAYMENT DIALOG -> selected plan=$planId"
+                )
+
+                viewModel.selectPlan(
+                    planId
+                )
+            },
+
+            // -------------------------------------------------
+            // PREMIUM REQUEST
+            // -------------------------------------------------
+
+            onPremiumRequest = {
+
+                Log.d(
+                    TAG,
+                    """
+                    =================================================
+                    PREMIUM REQUEST CLICK
+                    =================================================
+                    selectedPlanId=${uiState.selectedPlanId}
+                    isSubscribing=${uiState.isSubscribing}
+                    responseCode=${uiState.subscribeResponseCode}
+                    =================================================
+                    """.trimIndent()
+                )
+
+                Log.d(
+                    TAG,
+                    "Calling viewModel.subscribe()"
+                )
+
+                viewModel.subscribe()
+            },
+
+            // -------------------------------------------------
+            // DISMISS
+            // -------------------------------------------------
+
+            onDismiss = {
+
+                Log.d(
+                    TAG,
+                    "PAYMENT DIALOG -> dismiss requested"
+                )
+
+                if (
+                    !uiState.isSubscribing
+                ) {
+
+                    showPaymentDialog = false
+
+                    Log.d(
+                        TAG,
+                        "PAYMENT DIALOG -> closed"
+                    )
+
+                } else {
+
+                    Log.d(
+                        TAG,
+                        "PAYMENT DIALOG -> dismiss blocked, request running"
+                    )
+                }
+            }
+        )
+
+    } else {
+
+        if (
+            is409
+        ) {
+
+            Log.d(
+                TAG,
+                "PAYMENT DIALOG NOT RENDERED -> 409 HAS PRIORITY"
             )
         }
     }

@@ -24,8 +24,12 @@ class ProfileViewModel @Inject constructor(
         loadProfiles()
     }
 
-    fun loadProfiles(page: Int = 1) {
-
+    fun loadProfiles(
+        page: Int = 1,
+        gender: String? = null,
+        new: Boolean? = null,
+        activeNow: Boolean? = null
+    ) {
         viewModelScope.launch {
 
             _uiState.value = _uiState.value.copy(
@@ -33,10 +37,15 @@ class ProfileViewModel @Inject constructor(
                 error = null
             )
 
-            when (val result = repository.getProfiles(page)) {
-
+            when (
+                val result = repository.getProfiles(
+                    page = page,
+                    gender = gender,
+                    new = new,
+                    activeNow = activeNow
+                )
+            ) {
                 is NetworkResult.Success -> {
-
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         profiles = result.data.data.map { it.toUiModel() }
@@ -44,7 +53,6 @@ class ProfileViewModel @Inject constructor(
                 }
 
                 is NetworkResult.Error -> {
-
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = result.message

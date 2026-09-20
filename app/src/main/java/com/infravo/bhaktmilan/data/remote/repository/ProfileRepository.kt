@@ -19,11 +19,18 @@ class ProfileRepository @Inject constructor(
     // ==========================================
 
     suspend fun getProfiles(
-        page: Int = 1
+        page: Int = 1,
+        gender: String? = null,
+        new: Boolean? = null,
+        activeNow: Boolean? = null
     ): NetworkResult<ProfileListResponse> {
-
         return safeApiCall {
-            apiService.getProfiles(page)
+            apiService.getProfiles(
+                page = page,
+                gender = gender,
+                new = new,
+                activeNow = activeNow
+            )
         }
     }
 

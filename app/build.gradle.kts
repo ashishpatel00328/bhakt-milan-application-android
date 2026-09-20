@@ -7,6 +7,8 @@ plugins {
 
     id("kotlin-kapt")
     id("kotlin-parcelize")
+    id("org.sonarqube") version "7.3.1.8318"
+
 }
 
 android {
@@ -30,7 +32,7 @@ android {
         buildConfigField(
             "String",
             "BASE_URL",
-            "\"http://192.168.1.3:8000/api/v1/\""
+            "\"http://192.168.29.166:8000//api/v1/\""
         )
     }
 
@@ -66,6 +68,7 @@ android {
 
 
 dependencies {
+
     val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui-text")

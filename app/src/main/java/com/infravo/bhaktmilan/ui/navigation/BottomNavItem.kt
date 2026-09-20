@@ -6,7 +6,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.infravo.bhaktmilan.ui.navigation.AppRoutes
 
 sealed class BottomNavItem(
     val route: String,
@@ -32,16 +31,9 @@ sealed class BottomNavItem(
         "Shortlist"
     )
 
-//    object MyProfile : BottomNavItem(
-//        AppRoutes.MYPROFILE,
-//        Icons.Default.Person,
-//        "MyProfile"
-//    )
-
     object MyProfile : BottomNavItem(
         AppRoutes.MY_PROFILE,
         Icons.Default.Person,
         "My Profile"
     )
 }
-

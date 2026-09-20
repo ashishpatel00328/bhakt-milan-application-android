@@ -16,25 +16,16 @@ fun ProfileListItem.toUiModel(): ProfileListUiModel {
     }
 
     return ProfileListUiModel(
-
         id = id,
-
         profileId = profile_id,
-
         fullName = full_name,
-
         age = "$age Years",
-
         location = cityName,
-
-        height = height_cm?.let {
-            "$it cm"
-        } ?: "-",
-
+        sampradaya = sampraday.orEmpty(),
+        height = height_cm?.let { "$it cm" } ?: "-",
         education = education ?: "-",
-
         occupation = occupation ?: "-",
-
-        profilePhoto = profile_photo
+        profilePhoto = profile_photo,
+        isOnline = is_online
     )
 }
