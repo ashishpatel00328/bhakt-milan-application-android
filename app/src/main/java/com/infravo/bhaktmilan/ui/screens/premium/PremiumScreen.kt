@@ -1,654 +1,1850 @@
 package com.infravo.bhaktmilan.ui.screens.premium
 
-import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Verified
+import androidx.compose.material3.Card
+import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.infravo.bhaktmilan.ui.theme.AppBackground
+import com.infravo.bhaktmilan.ui.theme.BhaktMaroon
+import com.infravo.bhaktmilan.ui.theme.BhaktMaroonDark
+import com.infravo.bhaktmilan.ui.theme.BhaktMaroonLight
+import com.infravo.bhaktmilan.ui.theme.BorderColor
+import com.infravo.bhaktmilan.ui.theme.DividerColor
+import com.infravo.bhaktmilan.ui.theme.PremiumGold
+import com.infravo.bhaktmilan.ui.theme.PremiumGoldDark
+import com.infravo.bhaktmilan.ui.theme.PremiumGoldLight
+import com.infravo.bhaktmilan.ui.theme.SurfaceBackground
+import com.infravo.bhaktmilan.ui.theme.TextMuted
+import com.infravo.bhaktmilan.ui.theme.TextOnGold
+import com.infravo.bhaktmilan.ui.theme.TextPrimary
+import com.infravo.bhaktmilan.ui.theme.TextSecondary
+import com.infravo.bhaktmilan.ui.theme.SuccessGreen
+import com.infravo.bhaktmilan.ui.theme.SuccessGreenLight
 import com.infravo.bhaktmilan.ui.viewmodel.PremiumViewModel
-
-private const val TAG = "PremiumScreen"
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun PremiumScreen(
     viewModel: PremiumViewModel = hiltViewModel()
 ) {
-
-    // =========================================================
-    // UI STATE
-    //
-    // Using collectAsState() intentionally here.
-    // This guarantees the active composition observes the
-    // StateFlow without lifecycle gating.
-    // =========================================================
-
     val uiState by viewModel.uiState.collectAsState()
-
-    // =========================================================
-    // PAYMENT DIALOG
-    // =========================================================
 
     var showPaymentDialog by remember {
         mutableStateOf(false)
     }
 
     // =========================================================
-    // SCREEN ENTER / EXIT DEBUG
-    // =========================================================
-
-    DisposableEffect(Unit) {
-
-        Log.d(
-            TAG,
-            "################################################"
-        )
-
-        Log.d(
-            TAG,
-            "### PremiumScreen ENTERED / COMPOSED ###"
-        )
-
-        Log.d(
-            TAG,
-            "### ViewModel instance = ${viewModel.hashCode()} ###"
-        )
-
-        Log.d(
-            TAG,
-            "################################################"
-        )
-
-        onDispose {
-
-            Log.w(
-                TAG,
-                "################################################"
-            )
-
-            Log.w(
-                TAG,
-                "### PremiumScreen DISPOSED ###"
-            )
-
-            Log.w(
-                TAG,
-                "### ViewModel instance = ${viewModel.hashCode()} ###"
-            )
-
-            Log.w(
-                TAG,
-                "################################################"
-            )
-        }
-    }
-
-    // =========================================================
-    // EVERY UI STATE CHANGE
-    // =========================================================
-
-    LaunchedEffect(
-        uiState.isLoading,
-        uiState.isSubscribing,
-        uiState.selectedPlanId,
-        uiState.subscribeSuccess,
-        uiState.subscribeResponseCode,
-        uiState.subscribeResponseMessage,
-        uiState.error,
-        uiState.subscription
-    ) {
-
-        Log.d(
-            TAG,
-            """
-            =================================================
-            PREMIUM SCREEN -> UI STATE RECEIVED
-            =================================================
-            ViewModel       = ${viewModel.hashCode()}
-            isLoading       = ${uiState.isLoading}
-            isSubscribing   = ${uiState.isSubscribing}
-            selectedPlanId  = ${uiState.selectedPlanId}
-            success         = ${uiState.subscribeSuccess}
-            responseCode    = ${uiState.subscribeResponseCode}
-            responseMessage = ${uiState.subscribeResponseMessage}
-            error           = ${uiState.error}
-            subscription    = ${uiState.subscription}
-            paymentDialog   = $showPaymentDialog
-            =================================================
-            """.trimIndent()
-        )
-    }
-
-    // =========================================================
-    // SPECIFIC 409 WATCHER
-    // =========================================================
-
-    LaunchedEffect(
-        uiState.subscribeResponseCode
-    ) {
-
-        Log.d(
-            TAG,
-            "409 WATCHER -> responseCode=${uiState.subscribeResponseCode}"
-        )
-
-        if (
-            uiState.subscribeResponseCode == 409
-        ) {
-
-            Log.w(
-                TAG,
-                "################################################"
-            )
-
-            Log.w(
-                TAG,
-                "### 409 REACHED PREMIUM SCREEN ###"
-            )
-
-            Log.w(
-                TAG,
-                "### message=${uiState.subscribeResponseMessage} ###"
-            )
-
-            Log.w(
-                TAG,
-                "### closing payment dialog ###"
-            )
-
-            Log.w(
-                TAG,
-                "################################################"
-            )
-
-            showPaymentDialog = false
-        }
-    }
-
-    // =========================================================
-    // SUCCESS WATCHER
+    // SUBSCRIBE SUCCESS
     // =========================================================
 
     LaunchedEffect(
         uiState.subscribeSuccess
     ) {
+        if (uiState.subscribeSuccess) {
+            showPaymentDialog = false
+            viewModel.clearSubscribeSuccess()
+        }
+    }
 
-        Log.d(
-            TAG,
-            "SUCCESS WATCHER -> success=${uiState.subscribeSuccess}"
-        )
-
+    // =========================================================
+    // SUBSCRIBE RESPONSE
+    // =========================================================
+    // Keep the response dialog state-driven. Do not mutate
+    // showPaymentDialog from inside the composition/render block.
+    LaunchedEffect(
+        uiState.subscribeResponseCode,
+        uiState.subscribeResponseMessage
+    ) {
         if (
-            uiState.subscribeSuccess
+            uiState.subscribeResponseCode != null ||
+            !uiState.subscribeResponseMessage.isNullOrBlank()
         ) {
-
-            Log.d(
-                TAG,
-                "SUCCESS -> closing payment dialog"
-            )
-
             showPaymentDialog = false
         }
     }
 
     // =========================================================
-    // MAIN UI
+    // SCREEN
     // =========================================================
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AppBackground)
     ) {
 
-        // =====================================================
-        // HEADER
-        // =====================================================
-
-        item {
-
-            PremiumHeader()
-        }
-
-        // =====================================================
-        // HERO
-        // =====================================================
-
-        item {
-
-            PremiumHeroCard()
-        }
-
-        // =====================================================
-        // ERROR
-        // =====================================================
-
-        uiState.error
-            ?.takeIf {
-                it.isNotBlank()
-            }
-            ?.let { errorMessage ->
-
-                item {
-
-                    Log.d(
-                        TAG,
-                        "Rendering ErrorCard"
-                    )
-
-                    ErrorCard(
-                        message = errorMessage
-                    )
-                }
-            }
-
-        // =====================================================
-        // LOADING
-        // =====================================================
-
-        if (
-            uiState.isLoading
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 10.dp,
+                bottom = 30.dp
+            ),
+            verticalArrangement =
+                Arrangement.spacedBy(14.dp)
         ) {
 
-            item {
-
-                Log.d(
-                    TAG,
-                    "Rendering LoadingCard"
-                )
-
-                LoadingCard()
-            }
-        }
-
-        // =====================================================
-        // CURRENT SUBSCRIPTION
-        // =====================================================
-
-        uiState.subscription?.let { subscription ->
+            // =====================================================
+            // HEADER
+            // =====================================================
 
             item {
-
-                Log.d(
-                    TAG,
-                    """
-                    Rendering SubscriptionStatusCard
-                    isPremium=${subscription.is_premium}
-                    status=${subscription.status}
-                    plan=${subscription.plan}
-                    daysLeft=${subscription.days_left}
-                    startsAt=${subscription.starts_at}
-                    expiresAt=${subscription.expires_at}
-                    """.trimIndent()
-                )
-
-                SubscriptionStatusCard(
-                    subscription = subscription
-                )
+                PremiumHeader()
             }
-        }
 
-        // =====================================================
-        // BENEFITS
-        // =====================================================
+            // =====================================================
+            // PREMIUM HERO
+            // =====================================================
 
-        item {
-
-            PremiumBenefitsCard()
-        }
-
-        // =====================================================
-        // PLAN HEADER
-        // =====================================================
-
-        item {
-
-            PlansHeader()
-        }
-
-        // =====================================================
-        // PLANS
-        // =====================================================
-
-        items(
-            items = uiState.plans,
-            key = { plan ->
-                plan.id
+            item {
+                PremiumHeroCard()
             }
-        ) { plan ->
 
-            val isPremium =
-                uiState.subscription?.is_premium == true
+            // =====================================================
+            // ERROR
+            // =====================================================
 
-            val isSubmitting =
-                uiState.isSubscribing
+            uiState.error?.let { message ->
 
-            Log.d(
-                TAG,
-                """
-                Rendering PremiumPlanCard
-                planId=${plan.id}
-                name=${plan.name}
-                price=${plan.price}
-                duration=${plan.duration_days}
-                isPremium=$isPremium
-                isSubmitting=$isSubmitting
-                selectedPlanId=${uiState.selectedPlanId}
-                """.trimIndent()
-            )
-
-            PremiumPlanCard(
-
-                plan = plan,
-
-                isSelected =
-                    uiState.selectedPlanId == plan.id,
-
-                isPremium =
-                    isPremium,
-
-                isSubmitting =
-                    isSubmitting,
-
-                onClick = {
-
-                    Log.d(
-                        TAG,
-                        """
-                        =================================================
-                        PLAN CLICKED
-                        =================================================
-                        planId=${plan.id}
-                        name=${plan.name}
-                        isPremium=$isPremium
-                        isSubmitting=$isSubmitting
-                        =================================================
-                        """.trimIndent()
-                    )
-
-                    // ---------------------------------------------
-                    // PREMIUM USER
-                    // ---------------------------------------------
-
-                    if (
-                        isPremium
-                    ) {
-
-                        Log.d(
-                            TAG,
-                            "PLAN CLICK IGNORED -> already premium"
-                        )
-
-                        return@PremiumPlanCard
-                    }
-
-                    // ---------------------------------------------
-                    // REQUEST ALREADY RUNNING
-                    // ---------------------------------------------
-
-                    if (
-                        isSubmitting
-                    ) {
-
-                        Log.d(
-                            TAG,
-                            "PLAN CLICK IGNORED -> request running"
-                        )
-
-                        return@PremiumPlanCard
-                    }
-
-                    // ---------------------------------------------
-                    // SELECT PLAN
-                    // ---------------------------------------------
-
-                    Log.d(
-                        TAG,
-                        "Calling viewModel.selectPlan(${plan.id})"
-                    )
-
-                    viewModel.selectPlan(
-                        plan.id
-                    )
-
-                    // ---------------------------------------------
-                    // OPEN PAYMENT DIALOG
-                    // ---------------------------------------------
-
-                    showPaymentDialog = true
-
-                    Log.d(
-                        TAG,
-                        "showPaymentDialog=true"
+                item {
+                    ErrorCard(
+                        message = message
                     )
                 }
+            }
+
+            // =====================================================
+            // LOADING
+            // =====================================================
+
+            if (uiState.isLoading) {
+
+                item {
+                    LoadingCard()
+                }
+            }
+
+            // =====================================================
+            // CURRENT SUBSCRIPTION
+            // =====================================================
+
+            uiState.subscription?.let { subscription ->
+
+                item {
+                    SubscriptionStatusCard(
+                        isPremium = subscription.is_premium,
+                        status = subscription.status,
+                        plan = subscription.plan,
+                        daysLeft = subscription.days_left,
+                        startsAt = subscription.starts_at,
+                        expiresAt = subscription.expires_at
+                    )
+                }
+            }
+
+            // =====================================================
+            // BENEFITS
+            // =====================================================
+
+            item {
+                PremiumBenefitsCard()
+            }
+
+            // =====================================================
+            // AVAILABLE PLANS
+            // =====================================================
+
+            item {
+                PlansHeader()
+            }
+
+            // =====================================================
+            // PLANS
+            // =====================================================
+
+            items(
+                items = uiState.plans,
+                key = { plan ->
+                    plan.id
+                }
+            ) { plan ->
+
+                val isPremium =
+                    uiState.subscription?.is_premium == true
+
+                val isPending =
+                    uiState.subscription?.status.equals(
+                        "PENDING",
+                        ignoreCase = true
+                    )
+
+                PremiumPlanCard(
+                    name = plan.name,
+                    price = plan.price,
+                    durationDays = plan.duration_days,
+                    selected =
+                        uiState.selectedPlanId == plan.id,
+                    isPremium = isPremium,
+                    isPending = isPending,
+                    isSubmitting = uiState.isSubscribing,
+                    onClick = {
+
+                        when {
+
+                            // -----------------------------------------
+                            // ALREADY PREMIUM
+                            // -----------------------------------------
+
+                            isPremium -> {
+                                // No action
+                            }
+
+                            // -----------------------------------------
+                            // OPEN REQUEST FLOW
+                            //
+                            // Even when subscription status is PENDING,
+                            // allow the user to reach the request button.
+                            // The POST API decides whether the request is
+                            // new (2xx) or already exists (409).
+                            // -----------------------------------------
+
+                            else -> {
+
+                                viewModel.selectPlan(
+                                    plan.id
+                                )
+
+                                showPaymentDialog = true
+                            }
+                        }
+                    }
+                )
+            }
+
+            // =====================================================
+            // TRUST FOOTER
+            // =====================================================
+
+            item {
+                PremiumTrustFooter()
+            }
+        }
+
+        // =========================================================
+        // REQUEST / RESPONSE DIALOGS
+        // =========================================================
+        // Only one dialog is rendered at a time. A backend response
+        // always takes priority over the payment dialog.
+
+        when {
+            uiState.subscribeResponseCode == 409 -> {
+
+                PremiumPendingDialog(
+                    onDismiss = {
+                        viewModel.clearSubscribeResponse()
+                    }
+                )
+            }
+
+            uiState.subscribeResponseCode != null &&
+                    !uiState.subscribeResponseMessage.isNullOrBlank() -> {
+
+                PremiumSubscribeResponseDialog(
+                    message = uiState.subscribeResponseMessage,
+                    isConflict = false,
+                    onDismiss = {
+                        viewModel.clearSubscribeResponse()
+                    }
+                )
+            }
+
+            showPaymentDialog -> {
+                PremiumPaymentDialog(
+                    plans = uiState.plans,
+                    selectedPlanId = uiState.selectedPlanId,
+                    isSubmitting = uiState.isSubscribing,
+                    onPlanSelected = { planId ->
+                        viewModel.selectPlan(planId)
+                    },
+                    onPremiumRequest = {
+                        viewModel.subscribe()
+                    },
+                    onDismiss = {
+                        if (!uiState.isSubscribing) {
+                            showPaymentDialog = false
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+// =================================================================
+// SUBSCRIBE RESPONSE DIALOG
+// =================================================================
+
+@Composable
+private fun PremiumSubscribeResponseDialog(
+    message: String?,
+    isConflict: Boolean,
+    onDismiss: () -> Unit
+) {
+    if (message.isNullOrBlank()) {
+        return
+    }
+
+    val containerColor =
+        if (isConflict) {
+            BhaktMaroonLight
+        } else {
+            SuccessGreenLight
+        }
+
+    val iconTint =
+        if (isConflict) {
+            BhaktMaroon
+        } else {
+            SuccessGreen
+        }
+
+    val title =
+        if (isConflict) {
+            "Request Already Exists"
+        } else {
+            "Request Submitted"
+        }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
+    ) {
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 22.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor =
+                    SurfaceBackground
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 8.dp
+            )
+        ) {
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 22.dp,
+                        vertical = 24.dp
+                    ),
+                horizontalAlignment =
+                    Alignment.CenterHorizontally
+            ) {
+
+                // =====================================================
+                // ICON
+                // =====================================================
+
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(
+                            RoundedCornerShape(18.dp)
+                        )
+                        .background(
+                            containerColor
+                        ),
+                    contentAlignment =
+                        Alignment.Center
+                ) {
+
+                    Icon(
+                        imageVector =
+                            if (isConflict) {
+                                Icons.Outlined.Lock
+                            } else {
+                                Icons.Outlined.CheckCircle
+                            },
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier =
+                            Modifier.size(28.dp)
+                    )
+                }
+
+                Spacer(
+                    modifier =
+                        Modifier.height(14.dp)
+                )
+
+                // =====================================================
+                // TITLE
+                // =====================================================
+
+                Text(
+                    text = title,
+                    color = TextPrimary,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Serif,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.height(8.dp)
+                )
+
+                // =====================================================
+                // API MESSAGE
+                // =====================================================
+
+                Text(
+                    text = message,
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.height(12.dp)
+                )
+
+                Text(
+                    text =
+                        if (isConflict) {
+                            "Your premium request is already awaiting approval."
+                        } else {
+                            "Your premium request has been created successfully."
+                        },
+                    color = TextMuted,
+                    fontSize = 10.sp,
+                    lineHeight = 16.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                Button(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        text = "OK",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+// =================================================================
+// HEADER
+// =================================================================
+
+@Composable
+private fun PremiumHeader() {
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                top = 4.dp,
+                bottom = 4.dp
+            ),
+        verticalAlignment =
+            Alignment.CenterVertically
+    ) {
+
+        Column(
+            modifier =
+                Modifier.weight(1f)
+        ) {
+
+            Text(
+                text = "Premium",
+                color = TextPrimary,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Serif
+            )
+
+            Spacer(
+                modifier =
+                    Modifier.height(3.dp)
+            )
+
+            Text(
+                text =
+                    "Make meaningful connections with more confidence.",
+                color = TextSecondary,
+                fontSize = 11.sp,
+                lineHeight = 17.sp
             )
         }
     }
+}
 
-    // =========================================================
-    // RESPONSE FLAGS
-    // =========================================================
+// =================================================================
+// DATE FORMAT
+// =================================================================
 
-    val is409 =
-        uiState.subscribeResponseCode == 409
+private fun formatPremiumDate(
+    value: String?
+): String {
 
-    val hasOtherResponse =
-        uiState.subscribeResponseCode != null &&
-                uiState.subscribeResponseCode != 409
+    if (value.isNullOrBlank()) {
+        return "—"
+    }
 
-    // =========================================================
-    // FINAL DIALOG DEBUG
-    // =========================================================
+    return try {
 
-    Log.d(
-        TAG,
-        """
-        =================================================
-        DIALOG RENDER CHECK
-        =================================================
-        ViewModel        = ${viewModel.hashCode()}
-        responseCode     = ${uiState.subscribeResponseCode}
-        responseMessage  = ${uiState.subscribeResponseMessage}
-        is409            = $is409
-        hasOtherResponse = $hasOtherResponse
-        paymentDialog    = $showPaymentDialog
-        isSubscribing    = ${uiState.isSubscribing}
-        =================================================
-        """.trimIndent()
+        val dateTime =
+            OffsetDateTime.parse(value)
+
+        dateTime
+            .toLocalDate()
+            .format(
+                DateTimeFormatter.ofPattern(
+                    "dd MMM yyyy",
+                    Locale.getDefault()
+                )
+            )
+
+    } catch (e: Exception) {
+        value
+    }
+}
+
+// =================================================================
+// PREMIUM HERO
+// =================================================================
+
+@Composable
+private fun PremiumHeroCard() {
+
+    Card(
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        shape =
+            RoundedCornerShape(24.dp),
+
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    PremiumGoldLight
+            ),
+
+        elevation =
+            CardDefaults.cardElevation(
+                defaultElevation = 0.dp
+            )
+    ) {
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 20.dp,
+                    vertical = 22.dp
+                ),
+
+            horizontalAlignment =
+                Alignment.CenterHorizontally
+        ) {
+
+            Spacer(
+                modifier =
+                    Modifier.height(15.dp)
+            )
+
+            Text(
+                text = "Premium Membership",
+                color = TextOnGold,
+                fontSize = 23.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Serif,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(
+                modifier =
+                    Modifier.height(7.dp)
+            )
+
+            Text(
+                text =
+                    "Go beyond profiles. Connect with intention.",
+                color = TextSecondary,
+                fontSize = 12.sp,
+                lineHeight = 19.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(
+                modifier =
+                    Modifier.height(14.dp)
+            )
+
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                horizontalArrangement =
+                    Arrangement.Center
+            ) {
+
+                PremiumMiniBadge(
+                    icon =
+                        Icons.Outlined.FavoriteBorder,
+                    text = "Connect"
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.width(8.dp)
+                )
+
+                PremiumMiniBadge(
+                    icon =
+                        Icons.Outlined.Verified,
+                    text = "Premium"
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.width(8.dp)
+                )
+
+                PremiumMiniBadge(
+                    icon =
+                        Icons.Outlined.Security,
+                    text = "Trusted"
+                )
+            }
+        }
+    }
+}
+
+// =================================================================
+// MINI BADGE
+// =================================================================
+
+@Composable
+private fun PremiumMiniBadge(
+    icon: ImageVector,
+    text: String
+) {
+
+    Row(
+        modifier = Modifier
+            .clip(
+                RoundedCornerShape(10.dp)
+            )
+            .background(
+                SurfaceBackground.copy(
+                    alpha = 0.72f
+                )
+            )
+            .padding(
+                horizontal = 9.dp,
+                vertical = 6.dp
+            ),
+
+        verticalAlignment =
+            Alignment.CenterVertically
+    ) {
+
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = PremiumGoldDark,
+            modifier =
+                Modifier.size(14.dp)
+        )
+
+        Spacer(
+            modifier =
+                Modifier.width(4.dp)
+        )
+
+        Text(
+            text = text,
+            color = TextOnGold,
+            fontSize = 9.sp,
+            fontWeight =
+                FontWeight.SemiBold
+        )
+    }
+}
+
+// =================================================================
+// ERROR CARD
+// =================================================================
+
+@Composable
+private fun ErrorCard(
+    message: String
+) {
+
+    Card(
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        shape =
+            RoundedCornerShape(16.dp),
+
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    BhaktMaroonLight
+            ),
+
+        elevation =
+            CardDefaults.cardElevation(
+                defaultElevation = 0.dp
+            )
+    ) {
+
+        Text(
+            text = message,
+            color = BhaktMaroonDark,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            modifier =
+                Modifier.padding(14.dp)
+        )
+    }
+}
+
+// =================================================================
+// LOADING CARD
+// =================================================================
+
+@Composable
+private fun LoadingCard() {
+
+    Card(
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        shape =
+            RoundedCornerShape(18.dp),
+
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    SurfaceBackground
+            ),
+
+        elevation =
+            CardDefaults.cardElevation(
+                defaultElevation = 0.dp
+            )
+    ) {
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(22.dp),
+
+            contentAlignment =
+                Alignment.Center
+        ) {
+
+            CircularProgressIndicator(
+                color = BhaktMaroon,
+                modifier =
+                    Modifier.size(28.dp)
+            )
+        }
+    }
+}
+
+// =================================================================
+// SUBSCRIPTION STATUS
+// =================================================================
+
+@Composable
+private fun SubscriptionStatusCard(
+    isPremium: Boolean,
+    status: String?,
+    plan: String?,
+    daysLeft: Int,
+    startsAt: String?,
+    expiresAt: String?
+) {
+
+    val isPending =
+        status.equals(
+            "PENDING",
+            ignoreCase = true
+        )
+
+    val containerColor =
+        when {
+
+            isPremium ->
+                PremiumGoldLight
+
+            isPending ->
+                BhaktMaroonLight
+
+            else ->
+                SurfaceBackground
+        }
+
+    val iconTint =
+        when {
+
+            isPremium ->
+                PremiumGoldDark
+
+            isPending ->
+                BhaktMaroon
+
+            else ->
+                TextSecondary
+        }
+
+    Card(
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        shape =
+            RoundedCornerShape(20.dp),
+
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    containerColor
+            ),
+
+        elevation =
+            CardDefaults.cardElevation(
+                defaultElevation = 0.dp
+            )
+    ) {
+
+        Column(
+            modifier =
+                Modifier.padding(18.dp)
+        ) {
+
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(
+                            RoundedCornerShape(12.dp)
+                        )
+                        .background(
+                            SurfaceBackground
+                        ),
+
+                    contentAlignment =
+                        Alignment.Center
+                ) {
+
+                    Icon(
+                        imageVector =
+                            when {
+
+                                isPremium ->
+                                    Icons.Outlined.Verified
+
+                                isPending ->
+                                    Icons.Outlined.Lock
+
+                                else ->
+                                    Icons.Outlined.Star
+                            },
+
+                        contentDescription =
+                            null,
+
+                        tint = iconTint,
+
+                        modifier =
+                            Modifier.size(21.dp)
+                    )
+                }
+
+                Spacer(
+                    modifier =
+                        Modifier.width(11.dp)
+                )
+
+                Column(
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+
+                    Text(
+                        text =
+                            when {
+
+                                isPremium ->
+                                    "Premium Active"
+
+                                isPending ->
+                                    "Premium Request Pending"
+
+                                else ->
+                                    "Premium Not Active"
+                            },
+
+                        color =
+                            TextPrimary,
+
+                        fontSize = 15.sp,
+
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(3.dp)
+                    )
+
+                    Text(
+                        text =
+                            when {
+
+                                isPremium ->
+                                    "Your premium membership is active."
+
+                                isPending ->
+                                    "Your request is waiting for admin approval."
+
+                                else ->
+                                    "Choose a plan to unlock premium benefits."
+                            },
+
+                        color =
+                            TextSecondary,
+
+                        fontSize = 10.sp,
+
+                        lineHeight =
+                            16.sp
+                    )
+                }
+            }
+
+            // =====================================================
+            // ACTIVE SUBSCRIPTION DETAILS
+            // =====================================================
+
+            if (isPremium) {
+
+                Spacer(
+                    modifier =
+                        Modifier.height(16.dp)
+                )
+
+                androidx.compose.material3.HorizontalDivider(
+                    color =
+                        DividerColor
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.height(14.dp)
+                )
+
+                Row(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+
+                    horizontalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+
+                    SubscriptionStat(
+                        title = "Plan",
+                        value =
+                            plan ?: "Premium",
+                        modifier =
+                            Modifier.weight(1f)
+                    )
+
+                    SubscriptionStat(
+                        title = "Days Left",
+                        value =
+                            daysLeft.toString(),
+                        modifier =
+                            Modifier.weight(1f)
+                    )
+                }
+
+                if (
+                    !startsAt.isNullOrBlank() ||
+                    !expiresAt.isNullOrBlank()
+                ) {
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(10.dp)
+                    )
+
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        horizontalArrangement =
+                            Arrangement.spacedBy(8.dp)
+                    ) {
+
+                        if (
+                            !startsAt.isNullOrBlank()
+                        ) {
+
+                            SubscriptionStat(
+                                title = "Started",
+                                value =
+                                    formatPremiumDate(
+                                        startsAt
+                                    ),
+                                modifier =
+                                    Modifier.weight(1f)
+                            )
+                        }
+
+                        if (
+                            !expiresAt.isNullOrBlank()
+                        ) {
+
+                            SubscriptionStat(
+                                title = "Expires",
+                                value =
+                                    formatPremiumDate(
+                                        expiresAt
+                                    ),
+                                modifier =
+                                    Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // =====================================================
+            // PENDING MESSAGE
+            // =====================================================
+
+            if (isPending) {
+
+                Spacer(
+                    modifier =
+                        Modifier.height(13.dp)
+                )
+
+                Text(
+                    text =
+                        "Please do not submit another premium request while this one is pending.",
+
+                    color =
+                        BhaktMaroonDark,
+
+                    fontSize = 10.sp,
+
+                    lineHeight =
+                        16.sp
+                )
+            }
+        }
+    }
+}
+
+// =================================================================
+// SUBSCRIPTION STAT
+// =================================================================
+
+@Composable
+private fun SubscriptionStat(
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+
+    Column(
+        modifier = modifier
+            .clip(
+                RoundedCornerShape(12.dp)
+            )
+            .background(
+                SurfaceBackground.copy(
+                    alpha = 0.65f
+                )
+            )
+            .padding(
+                horizontal = 11.dp,
+                vertical = 9.dp
+            )
+    ) {
+
+        Text(
+            text = title,
+            color = TextMuted,
+            fontSize = 9.sp
+        )
+
+        Spacer(
+            modifier =
+                Modifier.height(3.dp)
+        )
+
+        Text(
+            text = value,
+            color = TextPrimary,
+            fontSize = 11.sp,
+            fontWeight =
+                FontWeight.SemiBold,
+            maxLines = 2,
+            overflow =
+                TextOverflow.Ellipsis
+        )
+    }
+}
+
+// =================================================================
+// BENEFITS
+// =================================================================
+
+@Composable
+private fun PremiumBenefitsCard() {
+
+    Card(
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        shape =
+            RoundedCornerShape(20.dp),
+
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    SurfaceBackground
+            ),
+
+        elevation =
+            CardDefaults.cardElevation(
+                defaultElevation = 0.dp
+            )
+    ) {
+
+        Column(
+            modifier =
+                Modifier.padding(18.dp)
+        ) {
+
+            Text(
+                text =
+                    "Why choose Premium?",
+
+                color =
+                    TextPrimary,
+
+                fontSize =
+                    16.sp,
+
+                fontWeight =
+                    FontWeight.SemiBold
+            )
+
+            Spacer(
+                modifier =
+                    Modifier.height(4.dp)
+            )
+
+            Text(
+                text =
+                    "Premium is designed to make meaningful connections easier.",
+
+                color =
+                    TextMuted,
+
+                fontSize =
+                    10.sp,
+
+                lineHeight =
+                    16.sp
+            )
+
+            Spacer(
+                modifier =
+                    Modifier.height(15.dp)
+            )
+
+            PremiumBenefitRow(
+                icon =
+                    Icons.Outlined.FavoriteBorder,
+
+                title =
+                    "Send Interest Requests",
+
+                description =
+                    "Express genuine interest and start a meaningful connection."
+            )
+
+            PremiumBenefitDivider()
+
+            PremiumBenefitRow(
+                icon =
+                    Icons.Outlined.AutoAwesome,
+
+                title =
+                    "Premium Experience",
+
+                description =
+                    "Enjoy a more focused and elevated matchmaking experience."
+            )
+
+            PremiumBenefitDivider()
+
+            PremiumBenefitRow(
+                icon =
+                    Icons.Outlined.Security,
+
+                title =
+                    "Connect with Confidence",
+
+                description =
+                    "Take your next step thoughtfully and respectfully."
+            )
+        }
+    }
+}
+
+// =================================================================
+// BENEFIT ROW
+// =================================================================
+
+@Composable
+private fun PremiumBenefitRow(
+    icon: ImageVector,
+    title: String,
+    description: String
+) {
+
+    Row(
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        verticalAlignment =
+            Alignment.Top
+    ) {
+
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(
+                    RoundedCornerShape(11.dp)
+                )
+                .background(
+                    PremiumGoldLight
+                ),
+
+            contentAlignment =
+                Alignment.Center
+        ) {
+
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = PremiumGoldDark,
+                modifier =
+                    Modifier.size(19.dp)
+            )
+        }
+
+        Spacer(
+            modifier =
+                Modifier.width(11.dp)
+        )
+
+        Column(
+            modifier =
+                Modifier.weight(1f)
+        ) {
+
+            Text(
+                text = title,
+                color = TextPrimary,
+                fontSize = 13.sp,
+                fontWeight =
+                    FontWeight.SemiBold
+            )
+
+            Spacer(
+                modifier =
+                    Modifier.height(3.dp)
+            )
+
+            Text(
+                text = description,
+                color = TextSecondary,
+                fontSize = 10.sp,
+                lineHeight =
+                    16.sp
+            )
+        }
+    }
+}
+
+// =================================================================
+// BENEFIT DIVIDER
+// =================================================================
+
+@Composable
+private fun PremiumBenefitDivider() {
+
+    Spacer(
+        modifier =
+            Modifier.height(12.dp)
     )
 
-    // =========================================================
-    // 409 POPUP
-    // =========================================================
+    androidx.compose.material3.HorizontalDivider(
+        color =
+            DividerColor
+    )
 
-    if (
-        is409
+    Spacer(
+        modifier =
+            Modifier.height(12.dp)
+    )
+}
+
+// =================================================================
+// PLANS HEADER
+// =================================================================
+
+@Composable
+private fun PlansHeader() {
+
+    Column(
+        modifier =
+            Modifier.padding(
+                horizontal = 2.dp
+            )
     ) {
 
-        Log.w(
-            TAG,
-            "################################################"
+        Text(
+            text =
+                "Choose your plan",
+
+            color =
+                TextPrimary,
+
+            fontSize =
+                17.sp,
+
+            fontWeight =
+                FontWeight.SemiBold
         )
 
-        Log.w(
-            TAG,
-            "### ABOUT TO RENDER PremiumPendingDialog ###"
+        Spacer(
+            modifier =
+                Modifier.height(3.dp)
         )
 
-        Log.w(
-            TAG,
-            "### CODE = 409 ###"
+        Text(
+            text =
+                "Select the membership that suits your journey.",
+
+            color =
+                TextMuted,
+
+            fontSize =
+                10.sp
         )
+    }
+}
 
-        Log.w(
-            TAG,
-            "### MESSAGE = ${uiState.subscribeResponseMessage} ###"
-        )
+// =================================================================
+// PLAN CARD
+// =================================================================
 
-        Log.w(
-            TAG,
-            "################################################"
-        )
+@Composable
+private fun PremiumPlanCard(
+    name: String,
+    price: Any,
+    durationDays: Int,
+    selected: Boolean,
+    isPremium: Boolean,
+    isPending: Boolean,
+    isSubmitting: Boolean,
+    onClick: () -> Unit
+) {
 
-        PremiumPendingDialog(
+    val cardColor =
+        when {
 
-            onDismiss = {
+            isPending ->
+                BhaktMaroonLight
 
-                Log.d(
-                    TAG,
-                    "409 POPUP -> DISMISS CLICKED"
-                )
+            selected ->
+                PremiumGoldLight
 
-                Log.d(
-                    TAG,
-                    "409 POPUP -> calling clearSubscribeResponse()"
-                )
+            else ->
+                SurfaceBackground
+        }
 
-                viewModel.clearSubscribeResponse()
+    val borderColor =
+        when {
+
+            isPending ->
+                BhaktMaroon
+
+            selected ->
+                PremiumGold
+
+            else ->
+                BorderColor
+        }
+
+    val clickable =
+        !isPremium &&
+                !isSubmitting
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width =
+                    if (
+                        selected ||
+                        isPending
+                    ) {
+                        1.5.dp
+                    } else {
+                        1.dp
+                    },
+
+                color =
+                    borderColor,
+
+                shape =
+                    RoundedCornerShape(20.dp)
+            )
+            .clickable(
+                enabled =
+                    clickable,
+
+                onClick =
+                    onClick
+            ),
+
+        shape =
+            RoundedCornerShape(20.dp),
+
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    cardColor
+            ),
+
+        elevation =
+            CardDefaults.cardElevation(
+                defaultElevation = 0.dp
+            )
+    ) {
+
+        Column(
+            modifier =
+                Modifier.padding(18.dp)
+        ) {
+
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+
+                Column(
+                    modifier =
+                        Modifier.weight(1f)
+                ) {
+
+                    Row(
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+
+                        Text(
+                            text = name,
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight =
+                                FontWeight.SemiBold
+                        )
+
+                        if (selected) {
+
+                            Spacer(
+                                modifier =
+                                    Modifier.width(7.dp)
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .background(
+                                        PremiumGold
+                                    )
+                                    .padding(
+                                        horizontal = 7.dp,
+                                        vertical = 4.dp
+                                    )
+                            ) {
+
+                                Text(
+                                    text = "Selected",
+                                    color = TextOnGold,
+                                    fontSize = 8.sp,
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(5.dp)
+                    )
+
+                    Text(
+                        text =
+                            "$durationDays days",
+
+                        color =
+                            TextSecondary,
+
+                        fontSize =
+                            11.sp
+                    )
+                }
+
+                Column(
+                    horizontalAlignment =
+                        Alignment.End
+                ) {
+
+                    Text(
+                        text =
+                            "₹$price",
+
+                        color =
+                            if (isPending) {
+                                BhaktMaroon
+                            } else if (selected) {
+                                PremiumGoldDark
+                            } else {
+                                BhaktMaroon
+                            },
+
+                        fontSize =
+                            21.sp,
+
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Text(
+                        text = "membership",
+                        color = TextMuted,
+                        fontSize = 8.sp
+                    )
+                }
             }
-        )
-    }
 
-    // =========================================================
-    // OTHER RESPONSE
-    // =========================================================
+            Spacer(
+                modifier =
+                    Modifier.height(14.dp)
+            )
 
-    if (
-        hasOtherResponse
-    ) {
+            androidx.compose.material3.HorizontalDivider(
+                color =
+                    DividerColor
+            )
 
-        Log.e(
-            TAG,
-            """
-            =================================================
-            OTHER PREMIUM RESPONSE
-            =================================================
-            code=${uiState.subscribeResponseCode}
-            message=${uiState.subscribeResponseMessage}
-            =================================================
-            """.trimIndent()
-        )
-    }
+            Spacer(
+                modifier =
+                    Modifier.height(12.dp)
+            )
 
-    // =========================================================
-    // PAYMENT DIALOG
-    //
-    // 409 always has priority.
-    // =========================================================
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
 
-    if (
-        showPaymentDialog &&
-        !is409
-    ) {
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
 
-        Log.d(
-            TAG,
-            ">>> RENDERING PremiumPaymentDialog <<<"
-        )
+                Icon(
+                    imageVector =
+                        when {
 
-        PremiumPaymentDialog(
+                            isPremium ->
+                                Icons.Outlined.Verified
 
-            plans =
-                uiState.plans,
+                            isPending ->
+                                Icons.Outlined.Lock
 
-            selectedPlanId =
-                uiState.selectedPlanId,
+                            selected ->
+                                Icons.Outlined.CheckCircle
 
-            isSubmitting =
-                uiState.isSubscribing,
+                            else ->
+                                Icons.Outlined.Star
+                        },
 
-            // -------------------------------------------------
-            // PLAN SELECTED
-            // -------------------------------------------------
+                    contentDescription =
+                        null,
 
-            onPlanSelected = { planId ->
+                    tint =
+                        when {
 
-                Log.d(
-                    TAG,
-                    "PAYMENT DIALOG -> selected plan=$planId"
+                            isPremium ->
+                                PremiumGoldDark
+
+                            isPending ->
+                                BhaktMaroon
+
+                            else ->
+                                PremiumGoldDark
+                        },
+
+                    modifier =
+                        Modifier.size(17.dp)
                 )
 
-                viewModel.selectPlan(
-                    planId
-                )
-            },
-
-            // -------------------------------------------------
-            // PREMIUM REQUEST
-            // -------------------------------------------------
-
-            onPremiumRequest = {
-
-                Log.d(
-                    TAG,
-                    """
-                    =================================================
-                    PREMIUM REQUEST CLICK
-                    =================================================
-                    selectedPlanId=${uiState.selectedPlanId}
-                    isSubscribing=${uiState.isSubscribing}
-                    responseCode=${uiState.subscribeResponseCode}
-                    =================================================
-                    """.trimIndent()
+                Spacer(
+                    modifier =
+                        Modifier.width(7.dp)
                 )
 
-                Log.d(
-                    TAG,
-                    "Calling viewModel.subscribe()"
-                )
+                Text(
+                    text =
+                        when {
 
-                viewModel.subscribe()
-            },
+                            isPremium ->
+                                "Premium Active"
 
-            // -------------------------------------------------
-            // DISMISS
-            // -------------------------------------------------
+                            isPending ->
+                                "Request Pending"
 
-            onDismiss = {
+                            isSubmitting ->
+                                "Submitting..."
 
-                Log.d(
-                    TAG,
-                    "PAYMENT DIALOG -> dismiss requested"
+                            selected ->
+                                "Continue with this plan"
+
+                            else ->
+                                "Select this plan"
+                        },
+
+                    color =
+                        if (isPending) {
+                            BhaktMaroon
+                        } else {
+                            TextPrimary
+                        },
+
+                    fontSize =
+                        11.sp,
+
+                    fontWeight =
+                        FontWeight.SemiBold,
+
+                    modifier =
+                        Modifier.weight(1f)
                 )
 
                 if (
-                    !uiState.isSubscribing
+                    !isPremium &&
+                    !isSubmitting
                 ) {
 
-                    showPaymentDialog = false
-
-                    Log.d(
-                        TAG,
-                        "PAYMENT DIALOG -> closed"
-                    )
-
-                } else {
-
-                    Log.d(
-                        TAG,
-                        "PAYMENT DIALOG -> dismiss blocked, request running"
+                    Text(
+                        text = "›",
+                        color =
+                            BhaktMaroon,
+                        fontSize = 21.sp,
+                        fontWeight =
+                            FontWeight.Light
                     )
                 }
             }
-        )
+        }
+    }
+}
 
-    } else {
+// =================================================================
+// TRUST FOOTER
+// =================================================================
 
-        if (
-            is409
+@Composable
+private fun PremiumTrustFooter() {
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = 10.dp,
+                vertical = 8.dp
+            ),
+
+        horizontalAlignment =
+            Alignment.CenterHorizontally
+    ) {
+
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(
+                    BhaktMaroonLight
+                ),
+
+            contentAlignment =
+                Alignment.Center
         ) {
 
-            Log.d(
-                TAG,
-                "PAYMENT DIALOG NOT RENDERED -> 409 HAS PRIORITY"
+            Icon(
+                imageVector =
+                    Icons.Outlined.Security,
+
+                contentDescription =
+                    null,
+
+                tint =
+                    BhaktMaroon,
+
+                modifier =
+                    Modifier.size(20.dp)
             )
         }
+
+        Spacer(
+            modifier =
+                Modifier.height(9.dp)
+        )
+
+        Text(
+            text =
+                "A meaningful connection starts with trust.",
+
+            color =
+                BhaktMaroonDark,
+
+            fontSize =
+                12.sp,
+
+            fontWeight =
+                FontWeight.SemiBold,
+
+            fontFamily =
+                FontFamily.Serif,
+
+            textAlign =
+                TextAlign.Center
+        )
+
+        Spacer(
+            modifier =
+                Modifier.height(4.dp)
+        )
+
+        Text(
+            text =
+                "Premium membership • Bhakt Milan",
+
+            color =
+                TextMuted,
+
+            fontSize =
+                9.sp,
+
+            textAlign =
+                TextAlign.Center
+        )
     }
 }

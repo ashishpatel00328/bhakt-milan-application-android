@@ -20,6 +20,13 @@ fun PremiumGate(
     subscribeSuccess: Boolean,
 
     // ==========================================
+    // NEW
+    // Subscribe Response Code
+    // ==========================================
+
+    subscribeResponseCode: Int?,
+
+    // ==========================================
     // Fresh Premium Check
     // ==========================================
 
@@ -81,6 +88,22 @@ fun PremiumGate(
     }
 
     // ==========================================
+    // 409 - Already Pending Request
+    // ==========================================
+
+    LaunchedEffect(subscribeResponseCode) {
+
+        if (subscribeResponseCode == 409) {
+
+            // Close payment dialog
+            showPaymentDialog = false
+
+            // Show pending popup
+            showPendingDialog = true
+        }
+    }
+
+    // ==========================================
     // Protected Action Handler
     // ==========================================
 
@@ -136,7 +159,8 @@ fun PremiumGate(
             }
         }
     }
- // ==========================================
+
+    // ==========================================
     // Caller UI
     // ==========================================
 

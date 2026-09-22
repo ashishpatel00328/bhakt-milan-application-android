@@ -753,6 +753,9 @@ private fun ReceivedActions(
             subscribeSuccess =
                 premiumState.subscribeSuccess,
 
+            subscribeResponseCode =
+                premiumState.subscribeResponseCode,
+
             onCheckPremium = {
                 premiumViewModel
                     .getLatestSubscription()
@@ -846,6 +849,9 @@ private fun ReceivedActions(
 
             subscribeSuccess =
                 premiumState.subscribeSuccess,
+
+            subscribeResponseCode =
+                premiumState.subscribeResponseCode,
 
             onCheckPremium = {
                 premiumViewModel
@@ -953,6 +959,9 @@ private fun SentAction(
 
         subscribeSuccess =
             premiumState.subscribeSuccess,
+
+        subscribeResponseCode =
+            premiumState.subscribeResponseCode,
 
         onCheckPremium = {
             premiumViewModel

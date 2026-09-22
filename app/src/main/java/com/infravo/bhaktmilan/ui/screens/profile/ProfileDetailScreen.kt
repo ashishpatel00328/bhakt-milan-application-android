@@ -593,6 +593,10 @@ fun ProfileDetailScreen(
                         subscribeSuccess =
                             premiumState.subscribeSuccess,
 
+                        // Subscribe Response Code
+                        subscribeResponseCode =
+                            premiumState.subscribeResponseCode,
+
                         // Fresh Premium Check
                         onCheckPremium = {
 
