@@ -6,6 +6,7 @@ import com.infravo.bhaktmilan.data.remote.request.CreateProfileRequest
 import com.infravo.bhaktmilan.data.remote.request.UpdateProfileRequest
 import com.infravo.bhaktmilan.data.remote.response.ProfileDetailResponse
 import com.infravo.bhaktmilan.data.remote.response.ProfileListResponse
+import com.infravo.bhaktmilan.data.remote.response.ProfilePhotoUploadResponse
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -76,6 +77,19 @@ class ProfileRepository @Inject constructor(
 
         return safeApiCall {
             apiService.updateProfile(request)
+        }
+    }
+
+    // ==========================================
+// Upload Profile Photo
+// ==========================================
+
+    suspend fun uploadProfilePhoto(
+        profilePhoto: okhttp3.MultipartBody.Part
+    ): NetworkResult<ProfilePhotoUploadResponse> {
+
+        return safeApiCall {
+            apiService.uploadProfilePhoto(profilePhoto)
         }
     }
 }

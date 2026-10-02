@@ -5,12 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.infravo.bhaktmilan.data.network.NetworkResult
 import com.infravo.bhaktmilan.data.remote.repository.InteractionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 class InteractionViewModel @Inject constructor(
@@ -18,14 +15,17 @@ class InteractionViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _uiState =
-        MutableStateFlow(InteractionUiState())
+        kotlinx.coroutines.flow.MutableStateFlow(
+            InteractionUiState()
+        )
 
-    val uiState: StateFlow<InteractionUiState> =
+    val uiState =
         _uiState.asStateFlow()
 
-    // ==========================================
-    // Load Sent + Received
-    // ==========================================
+
+    // =========================================================
+    // LOAD INTERACTIONS
+    // =========================================================
 
     fun loadInteractions() {
 
@@ -36,108 +36,78 @@ class InteractionViewModel @Inject constructor(
                 error = null
             )
 
-            val sentDeferred = async {
-                repository.getSentInterests()
-            }
-
-            val receivedDeferred = async {
-                repository.getReceivedInterests()
-            }
-
-            // Do NOT use awaitAll() here.
-            // awaitAll() loses the concrete generic type.
-
-            val sentResult =
-                sentDeferred.await()
-
-            val receivedResult =
-                receivedDeferred.await()
-
-            var error: String? = null
-
-            // ==========================================
-            // Sent Interests
-            // ==========================================
-
-            when (sentResult) {
+            when (val result = repository.getSentInterests()) {
 
                 is NetworkResult.Success -> {
 
                     _uiState.value =
                         _uiState.value.copy(
-                            sentInterests =
-                                sentResult.data
+                            sentInterests = result.data
                         )
                 }
 
                 is NetworkResult.Error -> {
 
-                    error =
-                        sentResult.message
+                    _uiState.value =
+                        _uiState.value.copy(
+                            error = result.message
+                        )
                 }
 
                 is NetworkResult.Loading -> Unit
             }
 
-            // ==========================================
-            // Received Interests
-            // ==========================================
-
-            when (receivedResult) {
+            when (
+                val result =
+                    repository.getReceivedInterests()
+            ) {
 
                 is NetworkResult.Success -> {
 
                     _uiState.value =
                         _uiState.value.copy(
-                            receivedInterests =
-                                receivedResult.data
+                            receivedInterests = result.data,
+                            isLoading = false
                         )
                 }
 
                 is NetworkResult.Error -> {
 
-                    if (error == null) {
-
-                        error =
-                            receivedResult.message
-                    }
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
                 }
 
                 is NetworkResult.Loading -> Unit
             }
-
-            // ==========================================
-            // Final State
-            // ==========================================
-
-            _uiState.value =
-                _uiState.value.copy(
-                    isLoading = false,
-                    error = error
-                )
         }
     }
 
-    // ==========================================
-    // Send Interest
-    // ==========================================
+
+    // =========================================================
+    // SEND INTEREST
+    // =========================================================
 
     fun sendInterest(
         receiverProfileId: Int,
-        message: String = ""
+        message: String
     ) {
 
         viewModelScope.launch {
 
-            setActionLoading()
+            _uiState.value = _uiState.value.copy(
+                isActionLoading = true,
+                error = null,
+                lastActionSuccess = false
+            )
 
             when (
-                val result =
-                    repository.sendInterest(
-                        receiverProfile =
-                            receiverProfileId,
-                        message = message
-                    )
+                val result = repository.sendInterest(
+                    receiverProfile = receiverProfileId.toInt(),
+                    message = message
+                )
             ) {
 
                 is NetworkResult.Success -> {
@@ -146,8 +116,7 @@ class InteractionViewModel @Inject constructor(
                         _uiState.value.copy(
                             isActionLoading = false,
                             lastActionSuccess = true,
-                            message =
-                                result.data.message,
+                            message = result.data.message,
                             error = null
                         )
 
@@ -159,6 +128,7 @@ class InteractionViewModel @Inject constructor(
                     _uiState.value =
                         _uiState.value.copy(
                             isActionLoading = false,
+                            lastActionSuccess = false,
                             error = result.message
                         )
                 }
@@ -168,9 +138,10 @@ class InteractionViewModel @Inject constructor(
         }
     }
 
-    // ==========================================
-    // Accept Interest
-    // ==========================================
+
+    // =========================================================
+    // ACCEPT INTEREST
+    // =========================================================
 
     fun acceptInterest(
         interestId: Int
@@ -178,13 +149,15 @@ class InteractionViewModel @Inject constructor(
 
         viewModelScope.launch {
 
-            setActionLoading()
+            _uiState.value = _uiState.value.copy(
+                isActionLoading = true,
+                error = null,
+                lastActionSuccess = false
+            )
 
             when (
                 val result =
-                    repository.acceptInterest(
-                        interestId
-                    )
+                    repository.acceptInterest(interestId)
             ) {
 
                 is NetworkResult.Success -> {
@@ -193,8 +166,7 @@ class InteractionViewModel @Inject constructor(
                         _uiState.value.copy(
                             isActionLoading = false,
                             lastActionSuccess = true,
-                            message =
-                                result.data.message,
+                            message = result.data.message,
                             error = null
                         )
 
@@ -206,6 +178,7 @@ class InteractionViewModel @Inject constructor(
                     _uiState.value =
                         _uiState.value.copy(
                             isActionLoading = false,
+                            lastActionSuccess = false,
                             error = result.message
                         )
                 }
@@ -215,9 +188,10 @@ class InteractionViewModel @Inject constructor(
         }
     }
 
-    // ==========================================
-    // Reject Interest
-    // ==========================================
+
+    // =========================================================
+    // REJECT INTEREST
+    // =========================================================
 
     fun rejectInterest(
         interestId: Int
@@ -225,13 +199,15 @@ class InteractionViewModel @Inject constructor(
 
         viewModelScope.launch {
 
-            setActionLoading()
+            _uiState.value = _uiState.value.copy(
+                isActionLoading = true,
+                error = null,
+                lastActionSuccess = false
+            )
 
             when (
                 val result =
-                    repository.rejectInterest(
-                        interestId
-                    )
+                    repository.rejectInterest(interestId)
             ) {
 
                 is NetworkResult.Success -> {
@@ -240,8 +216,7 @@ class InteractionViewModel @Inject constructor(
                         _uiState.value.copy(
                             isActionLoading = false,
                             lastActionSuccess = true,
-                            message =
-                                result.data.message,
+                            message = result.data.message,
                             error = null
                         )
 
@@ -253,6 +228,7 @@ class InteractionViewModel @Inject constructor(
                     _uiState.value =
                         _uiState.value.copy(
                             isActionLoading = false,
+                            lastActionSuccess = false,
                             error = result.message
                         )
                 }
@@ -262,9 +238,10 @@ class InteractionViewModel @Inject constructor(
         }
     }
 
-    // ==========================================
-    // Cancel Interest
-    // ==========================================
+
+    // =========================================================
+    // CANCEL INTEREST
+    // =========================================================
 
     fun cancelInterest(
         interestId: Int
@@ -272,13 +249,15 @@ class InteractionViewModel @Inject constructor(
 
         viewModelScope.launch {
 
-            setActionLoading()
+            _uiState.value = _uiState.value.copy(
+                isActionLoading = true,
+                error = null,
+                lastActionSuccess = false
+            )
 
             when (
                 val result =
-                    repository.cancelInterest(
-                        interestId
-                    )
+                    repository.cancelInterest(interestId)
             ) {
 
                 is NetworkResult.Success -> {
@@ -287,8 +266,7 @@ class InteractionViewModel @Inject constructor(
                         _uiState.value.copy(
                             isActionLoading = false,
                             lastActionSuccess = true,
-                            message =
-                                result.data.message,
+                            message = result.data.message,
                             error = null
                         )
 
@@ -300,6 +278,7 @@ class InteractionViewModel @Inject constructor(
                     _uiState.value =
                         _uiState.value.copy(
                             isActionLoading = false,
+                            lastActionSuccess = false,
                             error = result.message
                         )
                 }
@@ -309,20 +288,173 @@ class InteractionViewModel @Inject constructor(
         }
     }
 
-    // ==========================================
-    // Helpers
-    // ==========================================
 
-    private fun setActionLoading() {
+    // =========================================================
+    // LOAD SHORTLISTED PROFILES
+    // =========================================================
+
+    fun loadShortlistedProfiles() {
+
+        viewModelScope.launch {
+
+            _uiState.value = _uiState.value.copy(
+                isShortlistLoading = true,
+                shortlistError = null
+            )
+
+            when (
+                val result =
+                    repository.getShortlistedProfiles()
+            ) {
+
+                is NetworkResult.Success -> {
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isShortlistLoading = false,
+                            shortlistedProfiles = result.data,
+                            shortlistError = null
+                        )
+                }
+
+                is NetworkResult.Error -> {
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isShortlistLoading = false,
+                            shortlistError = result.message
+                        )
+                }
+
+                is NetworkResult.Loading -> Unit
+            }
+        }
+    }
+
+
+    // =========================================================
+    // ADD TO SHORTLIST
+    // =========================================================
+
+    fun addToShortlist(
+        profileId: String
+    ) {
+
+        viewModelScope.launch {
+
+            /*
+             * IMPORTANT:
+             *
+             * Only THIS profile is marked as loading.
+             * Other profile cards will not refresh.
+             */
+            _uiState.value = _uiState.value.copy(
+                shortlistActionProfileId = profileId,
+                shortlistError = null,
+                message = null
+            )
+
+            when (
+                val result =
+                    repository.addToShortlist(profileId)
+            ) {
+
+                is NetworkResult.Success -> {
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            shortlistActionProfileId = null,
+                            message = result.data.message,
+                            shortlistError = null
+                        )
+
+                    loadShortlistedProfiles()
+                }
+
+                is NetworkResult.Error -> {
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            shortlistActionProfileId = null,
+                            shortlistError = result.message
+                        )
+                }
+
+                is NetworkResult.Loading -> Unit
+            }
+        }
+    }
+
+
+    // =========================================================
+    // REMOVE FROM SHORTLIST
+    // =========================================================
+
+    fun removeFromShortlist(
+        profileId: String
+    ) {
+
+        viewModelScope.launch {
+
+            /*
+             * Only the selected profile gets the loading state.
+             */
+            _uiState.value = _uiState.value.copy(
+                shortlistActionProfileId = profileId,
+                shortlistError = null,
+                message = null
+            )
+
+            when (
+                val result =
+                    repository.removeFromShortlist(profileId)
+            ) {
+
+                is NetworkResult.Success -> {
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            shortlistActionProfileId = null,
+                            message = result.data.message,
+                            shortlistError = null
+                        )
+
+                    loadShortlistedProfiles()
+                }
+
+                is NetworkResult.Error -> {
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            shortlistActionProfileId = null,
+                            shortlistError = result.message
+                        )
+                }
+
+                is NetworkResult.Loading -> Unit
+            }
+        }
+    }
+
+
+    // =========================================================
+    // ACTION LOADING
+    // =========================================================
+
+    fun setActionLoading(
+        loading: Boolean
+    ) {
 
         _uiState.value =
             _uiState.value.copy(
-                isActionLoading = true,
-                lastActionSuccess = false,
-                message = null,
-                error = null
+                isActionLoading = loading
             )
     }
+
+
+    // =========================================================
+    // CLEAR ACTION STATE
+    // =========================================================
 
     fun clearActionState() {
 
@@ -333,11 +465,17 @@ class InteractionViewModel @Inject constructor(
             )
     }
 
+
+    // =========================================================
+    // CLEAR ERROR
+    // =========================================================
+
     fun clearError() {
 
         _uiState.value =
             _uiState.value.copy(
-                error = null
+                error = null,
+                shortlistError = null
             )
     }
 }

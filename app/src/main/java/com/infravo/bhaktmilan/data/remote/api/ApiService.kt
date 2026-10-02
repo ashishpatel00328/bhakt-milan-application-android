@@ -26,8 +26,15 @@ import com.infravo.bhaktmilan.data.remote.response.SubscribePremiumResponse
 import com.infravo.bhaktmilan.data.remote.request.InterestRequest
 import com.infravo.bhaktmilan.data.remote.response.InterestListResponse
 import com.infravo.bhaktmilan.data.remote.response.InterestResponse
+import com.infravo.bhaktmilan.data.remote.request.ShortlistRequest
+import com.infravo.bhaktmilan.data.remote.response.ProfilePhotoUploadResponse
+import com.infravo.bhaktmilan.data.remote.response.ShortlistResponse
+import com.infravo.bhaktmilan.data.remote.response.ShortlistListResponse
+import retrofit2.http.DELETE
 
-
+import okhttp3.MultipartBody
+import retrofit2.http.Multipart
+import retrofit2.http.Part
 
 interface ApiService {
 
@@ -154,6 +161,27 @@ interface ApiService {
     suspend fun getReceivedInterests():
             Response<InterestListResponse>
 
+
+
+    @POST("interactions/shortlists/")
+    suspend fun addToShortlist(
+        @Body request: ShortlistRequest
+    ): Response<ShortlistResponse>
+
+    @DELETE("interactions/shortlists/{profileId}/")
+    suspend fun removeFromShortlist(
+        @Path("profileId") profileId: String
+    ): Response<ShortlistResponse>
+
+    @GET("interactions/shortlists/list/")
+    suspend fun getShortlistedProfiles(): Response<ShortlistListResponse>
+
+
+    @Multipart
+    @PATCH("profile/photo/")
+    suspend fun uploadProfilePhoto(
+        @Part profilePhoto: MultipartBody.Part
+    ): Response<ProfilePhotoUploadResponse>
 // =========================
 // Guru
 // =========================

@@ -71,6 +71,9 @@ import com.infravo.bhaktmilan.ui.viewmodel.UserViewModel
 import com.infravo.bhaktmilan.ui.screens.splash.SplashScreen
 import com.infravo.bhaktmilan.ui.screens.myprofile.PersonalDetailsScreen
 
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+
 @Composable
 fun AppNavHost(
     navController: NavHostController,
@@ -184,6 +187,8 @@ fun AppNavHost(
         // =========================================================
         composable(AppRoutes.MY_PROFILE) {
 
+            val context = LocalContext.current
+
             val myProfileViewModel: UserViewModel =
                 hiltViewModel()
 
@@ -212,6 +217,14 @@ fun AppNavHost(
                             "${AppRoutes.USER_PROFILE}/$profileId"
                         )
                     }
+
+
+                },
+                onUploadPhoto = { uri: Uri ->
+                    myProfileViewModel.uploadProfilePhoto(
+                        context = context,
+                        imageUri = uri
+                    )
                 },
 
                 // -------------------------------------------------
@@ -520,9 +533,18 @@ fun AppNavHost(
         // =========================================================
         // SHORTLIST
         // =========================================================
+        // =========================================================
+
         composable(AppRoutes.SHORTLIST) {
 
-            ShortlistScreen()
+            ShortlistScreen(
+                onInterestClick = { profileId ->
+
+                    navController.navigate(
+                        "${AppRoutes.USER_PROFILE}/$profileId"
+                    )
+                }
+            )
         }
 
 

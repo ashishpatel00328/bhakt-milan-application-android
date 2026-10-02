@@ -8,6 +8,13 @@ data class MyProfileUiState(
 
     val profile: ProfileDetail? = null,
 
-    val error: String? = null
+    val error: String? = null,
+
+    // Profile photo upload state
+    val isUploadingPhoto: Boolean = false,
+
+    val photoUploadSuccess: String? = null,
+
+    val photoUploadError: String? = null
 
 )

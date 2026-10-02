@@ -31,7 +31,7 @@ val BhaktMaroonLight = Color(0xFFF4E2E2)
 val PremiumGold = Color(0xFFD7A451)
 
 // Deep Antique Gold
-val PremiumGoldDark = Color(0xFF9C6B25)
+val PremiumGoldDark = Color(0xFFE0952E)
 
 // Soft Champagne Gold
 val PremiumGoldLight = Color(0xFFFFF1D6)

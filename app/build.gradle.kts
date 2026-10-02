@@ -32,7 +32,7 @@ android {
         buildConfigField(
             "String",
             "BASE_URL",
-            "\"http://192.168.1.4:8000/api/v1/\""
+            "\"http://192.168.29.166:8000//api/v1/\""
         )
     }
 
@@ -150,7 +150,9 @@ dependencies {
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-
+    // Image cropping for profile photo
+    implementation("com.vanniktech:android-image-cropper:4.7.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
 
 }
 

@@ -22,15 +22,20 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.infravo.bhaktmilan.ui.model.ProfileListUiModel
 import com.infravo.bhaktmilan.ui.theme.AppBackground
@@ -57,6 +63,7 @@ import com.infravo.bhaktmilan.ui.theme.SurfaceBackground
 import com.infravo.bhaktmilan.ui.theme.TextMuted
 import com.infravo.bhaktmilan.ui.theme.TextPrimary
 import com.infravo.bhaktmilan.ui.theme.TextSecondary
+import com.infravo.bhaktmilan.ui.viewmodel.InteractionViewModel
 
 @Composable
 fun HomeScreen(
@@ -64,8 +71,31 @@ fun HomeScreen(
     onProfileClick: (ProfileListUiModel) -> Unit,
     onSendInterest: (ProfileListUiModel) -> Unit,
     onFilterClick: () -> Unit = {},
-    onNotificationClick: () -> Unit = {}
+    onNotificationClick: () -> Unit = {},
+    interactionViewModel: InteractionViewModel = hiltViewModel()
 ) {
+
+    val interactionState by
+    interactionViewModel.uiState.collectAsState()
+
+    // =========================================================
+    // LOAD SHORTLISTED PROFILES
+    // =========================================================
+
+    LaunchedEffect(Unit) {
+
+        interactionViewModel.loadShortlistedProfiles()
+    }
+
+    val shortlistedProfileIds =
+        remember(interactionState.shortlistedProfiles) {
+
+            interactionState.shortlistedProfiles
+                .map {
+                    it.profile_id
+                }
+                .toSet()
+        }
 
     var searchQuery by remember {
         mutableStateOf("")
@@ -81,7 +111,9 @@ fun HomeScreen(
     ) {
 
         if (searchQuery.isBlank()) {
+
             profiles
+
         } else {
 
             profiles.filter { profile ->
@@ -151,7 +183,8 @@ fun HomeScreen(
             }
 
             Icon(
-                imageVector = Icons.Outlined.NotificationsNone,
+                imageVector =
+                    Icons.Outlined.NotificationsNone,
                 contentDescription = "Notifications",
                 tint = TextPrimary,
                 modifier = Modifier
@@ -166,7 +199,8 @@ fun HomeScreen(
             )
 
             Icon(
-                imageVector = Icons.Outlined.FilterList,
+                imageVector =
+                    Icons.Outlined.FilterList,
                 contentDescription = "Filters",
                 tint = BhaktMaroon,
                 modifier = Modifier
@@ -200,7 +234,8 @@ fun HomeScreen(
                     shape = RoundedCornerShape(14.dp)
                 )
                 .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
 
             Icon(
@@ -232,7 +267,8 @@ fun HomeScreen(
                         if (searchQuery.isEmpty()) {
 
                             Text(
-                                text = "Search by name, city or Sampradaya",
+                                text =
+                                    "Search by name, city or Sampradaya",
                                 color = TextMuted,
                                 fontSize = 14.sp
                             )
@@ -256,30 +292,40 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement =
+                Arrangement.spacedBy(8.dp)
         ) {
 
             HomeFilterChip(
                 text = "All",
-                selected = selectedFilter == HomeQuickFilter.ALL,
+                selected =
+                    selectedFilter ==
+                            HomeQuickFilter.ALL,
                 onClick = {
-                    selectedFilter = HomeQuickFilter.ALL
+                    selectedFilter =
+                        HomeQuickFilter.ALL
                 }
             )
 
             HomeFilterChip(
                 text = "New",
-                selected = selectedFilter == HomeQuickFilter.NEW,
+                selected =
+                    selectedFilter ==
+                            HomeQuickFilter.NEW,
                 onClick = {
-                    selectedFilter = HomeQuickFilter.NEW
+                    selectedFilter =
+                        HomeQuickFilter.NEW
                 }
             )
 
             HomeFilterChip(
                 text = "Active Now",
-                selected = selectedFilter == HomeQuickFilter.ACTIVE_NOW,
+                selected =
+                    selectedFilter ==
+                            HomeQuickFilter.ACTIVE_NOW,
                 onClick = {
-                    selectedFilter = HomeQuickFilter.ACTIVE_NOW
+                    selectedFilter =
+                        HomeQuickFilter.ACTIVE_NOW
                 }
             )
         }
@@ -296,7 +342,8 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
 
             Text(
@@ -339,8 +386,10 @@ fun HomeScreen(
                     end = 16.dp,
                     bottom = 110.dp
                 ),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement =
+                    Arrangement.spacedBy(12.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(16.dp)
             ) {
 
                 items(
@@ -352,9 +401,51 @@ fun HomeScreen(
 
                     ProfileCard(
                         profile = profile,
+
                         onProfileClick = {
                             onProfileClick(profile)
                         },
+
+                        onShortlistClick = {
+
+                            if (
+                                shortlistedProfileIds
+                                    .contains(
+                                        profile.profileId
+                                    )
+                            ) {
+
+                                interactionViewModel
+                                    .removeFromShortlist(
+                                        profile.profileId
+                                    )
+
+                            } else {
+
+                                interactionViewModel
+                                    .addToShortlist(
+                                        profile.profileId
+                                    )
+                            }
+                        },
+
+                        isShortlisted =
+                            shortlistedProfileIds
+                                .contains(
+                                    profile.profileId
+                                ),
+
+                        // =================================================
+                        // IMPORTANT FIX
+                        // Only the profile currently being modified
+                        // gets the loading state.
+                        // =================================================
+
+                        isShortlistActionLoading =
+                            interactionState
+                                .shortlistActionProfileId ==
+                                    profile.profileId,
+
                         onSendInterest = {
                             onSendInterest(profile)
                         }
@@ -402,12 +493,14 @@ private fun HomeFilterChip(
             )
             .border(
                 width = 1.dp,
-                color = if (selected) {
-                    BhaktMaroon
-                } else {
-                    BorderColor
-                },
-                shape = RoundedCornerShape(10.dp)
+                color =
+                    if (selected) {
+                        BhaktMaroon
+                    } else {
+                        BorderColor
+                    },
+                shape =
+                    RoundedCornerShape(10.dp)
             )
             .clickable {
                 onClick()
@@ -420,11 +513,12 @@ private fun HomeFilterChip(
 
         Text(
             text = text,
-            color = if (selected) {
-                SurfaceBackground
-            } else {
-                TextSecondary
-            },
+            color =
+                if (selected) {
+                    SurfaceBackground
+                } else {
+                    TextSecondary
+                },
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium
         )
@@ -440,6 +534,9 @@ private fun HomeFilterChip(
 private fun ProfileCard(
     profile: ProfileListUiModel,
     onProfileClick: () -> Unit,
+    onShortlistClick: () -> Unit,
+    isShortlisted: Boolean,
+    isShortlistActionLoading: Boolean,
     onSendInterest: () -> Unit
 ) {
 
@@ -477,18 +574,24 @@ private fun ProfileCard(
                 .background(BhaktMaroonLight)
         ) {
 
-            if (profile.profilePhoto.isNullOrBlank()) {
+            if (
+                profile.profilePhoto.isNullOrBlank()
+            ) {
 
                 Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    modifier =
+                        Modifier.fillMaxSize(),
+                    contentAlignment =
+                        Alignment.Center
                 ) {
 
                     Icon(
-                        imageVector = Icons.Outlined.FavoriteBorder,
+                        imageVector =
+                            Icons.Outlined.FavoriteBorder,
                         contentDescription = null,
                         tint = BhaktMaroon,
-                        modifier = Modifier.size(42.dp)
+                        modifier =
+                            Modifier.size(42.dp)
                     )
                 }
 
@@ -496,9 +599,12 @@ private fun ProfileCard(
 
                 AsyncImage(
                     model = profile.profilePhoto,
-                    contentDescription = profile.fullName,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentDescription =
+                        profile.fullName,
+                    modifier =
+                        Modifier.fillMaxSize(),
+                    contentScale =
+                        ContentScale.Crop
                 )
             }
         }
@@ -526,8 +632,10 @@ private fun ProfileCard(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth()
+                overflow =
+                    TextOverflow.Ellipsis,
+                modifier =
+                    Modifier.fillMaxWidth()
             )
 
             Spacer(
@@ -535,11 +643,13 @@ private fun ProfileCard(
             )
 
             Text(
-                text = buildAgeLocationText(profile),
+                text =
+                    buildAgeLocationText(profile),
                 color = TextSecondary,
                 fontSize = 12.sp,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                overflow =
+                    TextOverflow.Ellipsis,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(18.dp)
@@ -550,16 +660,20 @@ private fun ProfileCard(
             )
 
             Text(
-                text = if (profile.sampradaya.isBlank()) {
-                    "Sampradaya not specified"
-                } else {
-                    profile.sampradaya
-                },
+                text =
+                    if (
+                        profile.sampradaya.isBlank()
+                    ) {
+                        "Sampradaya not specified"
+                    } else {
+                        profile.sampradaya
+                    },
                 color = BhaktMaroon,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                overflow =
+                    TextOverflow.Ellipsis,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(18.dp)
@@ -580,44 +694,146 @@ private fun ProfileCard(
                 modifier = Modifier.height(10.dp)
             )
 
-            // -----------------------------------------------------
-            // FILLED INTEREST BUTTON
-            // -----------------------------------------------------
+            // =====================================================
+            // SHORTLIST + INTEREST ACTIONS
+            // =====================================================
 
-            Button(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(38.dp),
-                onClick = {
-                    onSendInterest()
-                },
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = BhaktMaroon,
-                    contentColor = SurfaceBackground
-                ),
-                contentPadding = PaddingValues(
-                    horizontal = 10.dp
-                )
+                horizontalArrangement =
+                    Arrangement.spacedBy(6.dp)
             ) {
 
-                Icon(
-                    imageVector = Icons.Outlined.FavoriteBorder,
-                    contentDescription = "Send Interest",
-                    tint = SurfaceBackground,
-                    modifier = Modifier.size(16.dp)
-                )
+                // -------------------------------------------------
+                // SHORTLIST
+                // -------------------------------------------------
 
-                Spacer(
-                    modifier = Modifier.width(5.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize()
+                        .clip(
+                            RoundedCornerShape(10.dp)
+                        )
+                        .background(
+                            SurfaceBackground
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = BorderColor,
+                            shape =
+                                RoundedCornerShape(10.dp)
+                        )
+                        .clickable(
+                            enabled =
+                                !isShortlistActionLoading
+                        ) {
+                            onShortlistClick()
+                        },
+                    contentAlignment =
+                        Alignment.Center
+                ) {
 
-                Text(
-                    text = "Interest",
-                    color = SurfaceBackground,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                    if (
+                        isShortlistActionLoading
+                    ) {
+
+                        CircularProgressIndicator(
+                            modifier =
+                                Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = BhaktMaroon
+                        )
+
+                    } else {
+
+                        Icon(
+                            imageVector =
+                                if (isShortlisted) {
+                                    Icons.Filled.Star
+                                } else {
+                                    Icons.Outlined.Star
+                                },
+                            contentDescription =
+                                if (isShortlisted) {
+                                    "Remove from shortlist"
+                                } else {
+                                    "Add to shortlist"
+                                },
+                            tint =
+                                if (isShortlisted) {
+                                    PremiumGoldDark
+                                } else {
+                                    TextSecondary
+                                },
+                            modifier =
+                                Modifier.size(17.dp)
+                        )
+                    }
+                }
+
+                // -------------------------------------------------
+                // INTEREST
+                // -------------------------------------------------
+
+                Button(
+                    modifier =
+                        Modifier
+                            .weight(2f)
+                            .fillMaxSize(),
+
+                    onClick = {
+                        onSendInterest()
+                    },
+
+                    shape =
+                        RoundedCornerShape(10.dp),
+
+                    colors =
+                        ButtonDefaults.outlinedButtonColors(
+                            containerColor =
+                                SurfaceBackground,
+                            contentColor =
+                                BhaktMaroon
+                        ),
+
+                    border =
+                        androidx.compose.foundation.BorderStroke(
+                            width = 1.dp,
+                            color = BhaktMaroon
+                        ),
+
+                    contentPadding =
+                        PaddingValues(
+                            horizontal = 8.dp
+                        )
+                ) {
+
+                    Icon(
+                        imageVector =
+                            Icons.Outlined.FavoriteBorder,
+                        contentDescription =
+                            "Send Interest",
+                        tint = BhaktMaroon,
+                        modifier =
+                            Modifier.size(16.dp)
+                    )
+
+                    Spacer(
+                        modifier =
+                            Modifier.width(5.dp)
+                    )
+
+                    Text(
+                        text = "Interest",
+                        color = BhaktMaroon,
+                        fontSize = 12.sp,
+                        fontWeight =
+                            FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
@@ -637,7 +853,8 @@ private fun buildAgeLocationText(
 
     return when {
 
-        age.isNotBlank() && location.isNotBlank() ->
+        age.isNotBlank() &&
+                location.isNotBlank() ->
             "$age • $location"
 
         age.isNotBlank() ->
@@ -665,11 +882,13 @@ private fun EmptyProfilesState(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment =
+            Alignment.Center
     ) {
 
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment =
+                Alignment.CenterHorizontally
         ) {
 
             Box(
@@ -678,15 +897,20 @@ private fun EmptyProfilesState(
                     .clip(
                         RoundedCornerShape(20.dp)
                     )
-                    .background(BhaktMaroonLight),
-                contentAlignment = Alignment.Center
+                    .background(
+                        BhaktMaroonLight
+                    ),
+                contentAlignment =
+                    Alignment.Center
             ) {
 
                 Icon(
-                    imageVector = Icons.Outlined.FavoriteBorder,
+                    imageVector =
+                        Icons.Outlined.FavoriteBorder,
                     contentDescription = null,
                     tint = BhaktMaroon,
-                    modifier = Modifier.size(30.dp)
+                    modifier =
+                        Modifier.size(30.dp)
                 )
             }
 
@@ -706,15 +930,17 @@ private fun EmptyProfilesState(
             )
 
             Text(
-                text = if (searchQuery.isBlank()) {
-                    "There are no profiles available right now."
-                } else {
-                    "Try a different name, city or Sampradaya."
-                },
+                text =
+                    if (searchQuery.isBlank()) {
+                        "There are no profiles available right now."
+                    } else {
+                        "Try a different name, city or Sampradaya."
+                    },
                 color = TextSecondary,
                 fontSize = 13.sp,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow =
+                    TextOverflow.Ellipsis
             )
         }
     }
