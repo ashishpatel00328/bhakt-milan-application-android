@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -46,11 +45,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.infravo.bhaktmilan.data.remote.response.Interest
 import com.infravo.bhaktmilan.ui.screens.premium.PremiumGate
 import com.infravo.bhaktmilan.ui.theme.AppBackground
@@ -66,10 +67,12 @@ import com.infravo.bhaktmilan.ui.theme.TextPrimary
 import com.infravo.bhaktmilan.ui.theme.TextSecondary
 import com.infravo.bhaktmilan.ui.viewmodel.InteractionViewModel
 import com.infravo.bhaktmilan.ui.viewmodel.PremiumViewModel
+import com.infravo.bhaktmilan.utils.ProfilePhotoUtils
 
 
 @Composable
 fun RequestsScreen(
+    onProfileClick: (String) -> Unit = {},
     interactionViewModel: InteractionViewModel = hiltViewModel(),
     premiumViewModel: PremiumViewModel = hiltViewModel()
 ) {
@@ -160,24 +163,38 @@ fun RequestsScreen(
         // LOADING
         // =========================================================
 
+        // Keep the header and tabs available while refreshing.
         if (interactionState.isLoading) {
-
-            LoadingRequests()
-
-            return@Column
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = BhaktMaroon,
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    text = "Refreshing requests…",
+                    color = TextSecondary,
+                    fontSize = 12.sp
+                )
+            }
         }
 
-        // =========================================================
-        // ERROR
-        // =========================================================
-
+        // Show errors without hiding the page or the existing list.
         interactionState.error?.let { error ->
-
-            ErrorRequests(
-                message = error
+            Text(
+                text = "Couldn't refresh requests: $error",
+                color = BhaktMaroon,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
             )
-
-            return@Column
         }
 
         // =========================================================
@@ -232,7 +249,8 @@ fun RequestsScreen(
                         premiumViewModel =
                             premiumViewModel,
                         interactionViewModel =
-                            interactionViewModel
+                            interactionViewModel,
+                        onProfileClick = onProfileClick
                     )
                 }
             }
@@ -365,7 +383,8 @@ private fun InterestRequestCard(
     premiumState:
     com.infravo.bhaktmilan.ui.viewmodel.PremiumUiState,
     premiumViewModel: PremiumViewModel,
-    interactionViewModel: InteractionViewModel
+    interactionViewModel: InteractionViewModel,
+    onProfileClick: (String) -> Unit
 ) {
 
     val name =
@@ -393,9 +412,15 @@ private fun InterestRequestCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                // Existing profile navigation can be
-                // connected here later without changing
-                // request functionality.
+                val profileCode = if (isReceived) {
+                    interest.sender_profile_id
+                } else {
+                    interest.receiver_profile_id
+                }
+
+                if (profileCode.isNotBlank()) {
+                    onProfileClick(profileCode)
+                }
             },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
@@ -424,7 +449,12 @@ private fun InterestRequestCard(
             ) {
 
                 ProfileAvatar(
-                    name = name
+                    name = name,
+                    imageUrl = if (isReceived) {
+                        interest.sender_profile_photo
+                    } else {
+                        interest.receiver_profile_photo
+                    }
                 )
 
                 Spacer(
@@ -461,15 +491,6 @@ private fun InterestRequestCard(
                             modifier = Modifier.width(6.dp)
                         )
 
-                        Icon(
-                            imageVector =
-                                androidx.compose.material.icons.Icons.Filled.Star,
-                            contentDescription =
-                                "Shortlist",
-                            tint = PremiumGold,
-                            modifier =
-                                Modifier.size(21.dp)
-                        )
                     }
 
                     Spacer(
@@ -481,11 +502,43 @@ private fun InterestRequestCard(
                     // -------------------------------------------------
 
                     Text(
-                        text = profileId,
+                        text = "Profile ID: $profileId",
                         color = TextSecondary,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+
+                    val location = listOfNotNull(
+                        (if (isReceived) interest.sender_city else interest.receiver_city)?.trim()?.takeIf { it.isNotBlank() },
+                        (if (isReceived) interest.sender_state else interest.receiver_state)?.trim()?.takeIf { it.isNotBlank() }
+                    ).distinct().joinToString(", ")
+                    val sampradaya = (if (isReceived) interest.sender_sampradaya else interest.receiver_sampradaya)
+                        ?.trim().orEmpty()
+
+                    if (location.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Location: $location",
+                            color = TextSecondary,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    if (sampradaya.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Sampradaya: $sampradaya",
+                            color = BhaktMaroon,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
                     Spacer(
                         modifier = Modifier.height(9.dp)
@@ -504,38 +557,23 @@ private fun InterestRequestCard(
                     )
 
                     // -------------------------------------------------
-                    // STATUS
-                    // -------------------------------------------------
-
-                    Text(
-                        text =
-                            "Status: ${interest.status}",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(4.dp)
-                    )
-
-                    // -------------------------------------------------
                     // MESSAGE
                     // -------------------------------------------------
 
-                    Text(
-                        text =
-                            if (interest.message.isBlank()) {
-                                "Message: —"
-                            } else {
-                                "Message: ${interest.message}"
-                            },
-                        color = TextSecondary,
-                        fontSize = 12.sp,
-                        maxLines = 2,
-                        overflow =
-                            TextOverflow.Ellipsis
-                    )
+                    val message = interest.message.trim()
+                    if (
+                        message.isNotEmpty() &&
+                        !message.equals("null", ignoreCase = true) &&
+                        !message.equals("string", ignoreCase = true)
+                    ) {
+                        Text(
+                            text = "Message: $message",
+                            color = TextSecondary,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
 
@@ -586,15 +624,15 @@ private fun InterestRequestCard(
 
 @Composable
 private fun ProfileAvatar(
-    name: String
+    name: String,
+    imageUrl: String?
 ) {
-
-    val initial =
-        name
-            .trim()
-            .firstOrNull()
-            ?.uppercase()
-            ?: "?"
+    val resolvedImageUrl = ProfilePhotoUtils.resolveUrl(imageUrl)
+    val initial = name
+        .trim()
+        .firstOrNull()
+        ?.uppercase()
+        ?: "?"
 
     Box(
         modifier = Modifier
@@ -602,42 +640,40 @@ private fun ProfileAvatar(
                 width = 112.dp,
                 height = 118.dp
             )
-            .clip(
-                RoundedCornerShape(14.dp)
-            )
-            .background(
-                BhaktMaroonLight
-            ),
+            .clip(RoundedCornerShape(14.dp))
+            .background(BhaktMaroonLight),
         contentAlignment = Alignment.Center
     ) {
-
-        Column(
-            horizontalAlignment =
-                Alignment.CenterHorizontally
-        ) {
-
-            Icon(
-                imageVector =
-                    Icons.Outlined.Person,
-                contentDescription = null,
-                tint = BhaktMaroon,
-                modifier = Modifier.size(38.dp)
+        if (resolvedImageUrl != null) {
+            AsyncImage(
+                model = resolvedImageUrl,
+                contentDescription = "$name profile photo",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(14.dp)),
+                contentScale = ContentScale.Crop
             )
-
-            Spacer(
-                modifier = Modifier.height(2.dp)
-            )
-
-            Text(
-                text = initial,
-                color = BhaktMaroon,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Person,
+                    contentDescription = null,
+                    tint = BhaktMaroon,
+                    modifier = Modifier.size(38.dp)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = initial,
+                    color = BhaktMaroon,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
-
 
 // ===============================================================
 // STATUS BADGE
@@ -725,6 +761,40 @@ private fun ReceivedActions(
     premiumViewModel: PremiumViewModel,
     interactionViewModel: InteractionViewModel
 ) {
+
+    // Only pending interests can be accepted or rejected.
+    val normalizedStatus = interest.status.trim().lowercase()
+    if (normalizedStatus != "pending") {
+        val statusLabel = when (normalizedStatus) {
+            "accepted" -> "Accepted"
+            "rejected" -> "Rejected"
+            "cancelled", "canceled" -> "Cancelled"
+            else -> interest.status.trim().ifBlank { "Unavailable" }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(statusLabel)
+            }
+            OutlinedButton(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(if (normalizedStatus == "accepted") "Remove" else "Unavailable")
+            }
+        }
+        return
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -943,6 +1013,9 @@ private fun SentAction(
     interactionViewModel: InteractionViewModel
 ) {
 
+    // A sent request can only be cancelled while its status is pending.
+    val canCancel = interest.status.trim().equals("pending", ignoreCase = true)
+
     PremiumGate(
 
         subscription =
@@ -994,30 +1067,31 @@ private fun SentAction(
 
             OutlinedButton(
                 onClick = onClick,
-                enabled =
-                    !isActionLoading,
-                modifier =
-                    Modifier.fillMaxWidth(),
-                shape =
-                    RoundedCornerShape(10.dp),
-                border =
-                    BorderStroke(
-                        width = 1.5.dp,
-                        color = BhaktMaroon
-                    ),
-                contentPadding =
-                    PaddingValues(
-                        vertical = 10.dp
-                    )
+                enabled = canCancel && !isActionLoading,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = BhaktMaroon,
+                    disabledContentColor = TextMuted,
+                    disabledContainerColor = Color.Transparent
+                ),
+                border = BorderStroke(
+                    width = 1.5.dp,
+                    color = if (canCancel && !isActionLoading) {
+                        BhaktMaroon
+                    } else {
+                        BorderColor
+                    }
+                ),
+                contentPadding = PaddingValues(vertical = 10.dp)
             ) {
 
                 Icon(
                     imageVector =
                         Icons.Outlined.Close,
                     contentDescription = null,
-                    tint = BhaktMaroon,
-                    modifier =
-                        Modifier.size(17.dp)
+                    tint = if (canCancel && !isActionLoading) BhaktMaroon else TextMuted,
+                    modifier = Modifier.size(17.dp)
                 )
 
                 Spacer(
@@ -1027,7 +1101,7 @@ private fun SentAction(
 
                 Text(
                     text = "Cancel Request",
-                    color = BhaktMaroon,
+                    color = if (canCancel && !isActionLoading) BhaktMaroon else TextMuted,
                     fontSize = 13.sp,
                     fontWeight =
                         FontWeight.SemiBold

@@ -147,6 +147,43 @@ class ProfileDetailViewModel @Inject constructor(
         }
     }
 
+    fun loadProfileContact(profileCode: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isContactLoading = true,
+                whatsappNumber = null,
+                contactError = null
+            )
+
+            when (val result = profileRepository.getProfileContact(profileCode)) {
+                is NetworkResult.Success -> {
+                    val number = result.data.data?.whatsapp_number
+                        ?.takeIf { it.isNotBlank() }
+
+                    _uiState.value = _uiState.value.copy(
+                        isContactLoading = false,
+                        whatsappNumber = number,
+                        contactError = if (number == null) {
+                            "WhatsApp contact is not available."
+                        } else {
+                            null
+                        }
+                    )
+                }
+
+                is NetworkResult.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isContactLoading = false,
+                        whatsappNumber = null,
+                        contactError = result.message
+                    )
+                }
+
+                is NetworkResult.Loading -> Unit
+            }
+        }
+    }
+
     // ==========================================
     // Clear Error
     // ==========================================

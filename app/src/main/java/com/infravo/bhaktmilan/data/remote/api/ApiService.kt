@@ -27,6 +27,8 @@ import com.infravo.bhaktmilan.data.remote.request.InterestRequest
 import com.infravo.bhaktmilan.data.remote.response.InterestListResponse
 import com.infravo.bhaktmilan.data.remote.response.InterestResponse
 import com.infravo.bhaktmilan.data.remote.request.ShortlistRequest
+import com.infravo.bhaktmilan.data.remote.response.OnlineStatusResponse
+import com.infravo.bhaktmilan.data.remote.response.ProfileContactResponse
 import com.infravo.bhaktmilan.data.remote.response.ProfilePhotoUploadResponse
 import com.infravo.bhaktmilan.data.remote.response.ShortlistResponse
 import com.infravo.bhaktmilan.data.remote.response.ShortlistListResponse
@@ -177,11 +179,22 @@ interface ApiService {
     suspend fun getShortlistedProfiles(): Response<ShortlistListResponse>
 
 
+    @GET("profile/profiles/{profileId}/contact/")
+    suspend fun getProfileContact(
+        @Path("profileId") profileId: String
+    ): Response<ProfileContactResponse>
+
     @Multipart
     @PATCH("profile/photo/")
     suspend fun uploadProfilePhoto(
         @Part profilePhoto: MultipartBody.Part
     ): Response<ProfilePhotoUploadResponse>
+
+    @GET("auth/online-status/{userId}/")
+    suspend fun getOnlineStatus(
+        @Path("userId") userId: Int
+    ): Response<OnlineStatusResponse>
+
 // =========================
 // Guru
 // =========================

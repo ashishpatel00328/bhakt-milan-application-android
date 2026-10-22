@@ -1,13 +1,14 @@
 package com.infravo.bhaktmilan.ui.viewmodel
 
-import com.infravo.bhaktmilan.ui.viewmodel.MyProfileUiState
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.infravo.bhaktmilan.data.network.NetworkResult
 import com.infravo.bhaktmilan.data.remote.repository.AuthRepository
 import com.infravo.bhaktmilan.data.remote.repository.ProfileRepository
+import com.infravo.bhaktmilan.ui.viewmodel.MyProfileUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,20 +19,15 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
-
-
 @HiltViewModel
 class UserViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val authRepository: AuthRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(
-        MyProfileUiState()
-    )
+    private val _uiState = MutableStateFlow(MyProfileUiState())
 
-    val uiState: StateFlow<MyProfileUiState> =
-        _uiState.asStateFlow()
+    val uiState: StateFlow<MyProfileUiState> = _uiState.asStateFlow()
 
     // =========================================================
     // LOAD MY PROFILE
@@ -46,9 +42,13 @@ class UserViewModel @Inject constructor(
 
             when (val result = profileRepository.getMyProfile()) {
                 is NetworkResult.Success -> {
+                    val latestProfile = result.data.data
+
+                    // Update only after the server returns a successful profile.
+                    // A failed request never clears the previously displayed photo.
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        profile = result.data.data,
+                        profile = latestProfile,
                         error = null
                     )
                 }
@@ -84,15 +84,11 @@ class UserViewModel @Inject constructor(
 
             try {
                 val contentResolver = context.contentResolver
+                val mimeType = contentResolver.getType(imageUri) ?: "image/jpeg"
 
-                val mimeType = contentResolver.getType(imageUri)
-                    ?: "image/jpeg"
-
-                val imageBytes: ByteArray? = contentResolver
+                val imageBytes = contentResolver
                     .openInputStream(imageUri)
-                    ?.use { inputStream ->
-                        inputStream.readBytes()
-                    }
+                    ?.use { inputStream -> inputStream.readBytes() }
 
                 if (imageBytes == null || imageBytes.isEmpty()) {
                     _uiState.value = _uiState.value.copy(
@@ -118,18 +114,14 @@ class UserViewModel @Inject constructor(
                     requestBody
                 )
 
-                when (
-                    val result = profileRepository.uploadProfilePhoto(
-                        photoPart
-                    )
-                ) {
+                when (val result = profileRepository.uploadProfilePhoto(photoPart)) {
                     is NetworkResult.Success -> {
                         val response = result.data
                         val photoPath = response.data?.photo
 
-                        if (response.success &&
-                            !photoPath.isNullOrBlank()
-                        ) {
+                        if (response.success && !photoPath.isNullOrBlank()) {
+                            // Immediately update the visible profile from the upload response.
+                            // Coil will load the returned path through the screen's URL resolver.
                             val currentProfile = _uiState.value.profile
 
                             _uiState.value = _uiState.value.copy(
@@ -141,25 +133,26 @@ class UserViewModel @Inject constructor(
                                 photoUploadError = null
                             )
 
-                            // Refresh profile data after successful upload.
+                            // Then fetch canonical profile data from the backend.
+                            // If refresh fails, loadMyProfile keeps the just-updated photo.
                             loadMyProfile()
                         } else {
                             _uiState.value = _uiState.value.copy(
                                 isUploadingPhoto = false,
-                                photoUploadError =
-                                    response.message.ifBlank {
-                                        "Photo upload failed."
-                                    }
+                                photoUploadError = response.message.ifBlank {
+                                    "Photo upload failed."
+                                }
                             )
                         }
                     }
 
                     is NetworkResult.Error -> {
-                        android.util.Log.e(
+                        Log.e(
                             "ProfilePhotoUpload",
                             "Upload failed: ${result.message}"
                         )
 
+                        // Keep existing profile/photo unchanged on upload failure.
                         _uiState.value = _uiState.value.copy(
                             isUploadingPhoto = false,
                             photoUploadError = result.message
@@ -173,6 +166,13 @@ class UserViewModel @Inject constructor(
                     }
                 }
             } catch (exception: Exception) {
+                Log.e(
+                    "ProfilePhotoUpload",
+                    "Unexpected upload error",
+                    exception
+                )
+
+                // Preserve the current profile and its photo on failure.
                 _uiState.value = _uiState.value.copy(
                     isUploadingPhoto = false,
                     photoUploadError = exception.message
@@ -205,10 +205,7 @@ class UserViewModel @Inject constructor(
              */
             authRepository.logout()
 
-            /*
-             * Clear profile data from ViewModel so that
-             * old profile information is not retained.
-             */
+            // Clear profile data so a previous user's photo is not retained.
             _uiState.value = MyProfileUiState()
         }
     }
@@ -218,9 +215,7 @@ class UserViewModel @Inject constructor(
     // =========================================================
 
     fun clearError() {
-        _uiState.value = _uiState.value.copy(
-            error = null
-        )
+        _uiState.value = _uiState.value.copy(error = null)
     }
 
     // =========================================================
@@ -231,4 +226,3 @@ class UserViewModel @Inject constructor(
         _uiState.value = MyProfileUiState()
     }
 }
-

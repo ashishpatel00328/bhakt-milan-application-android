@@ -8,6 +8,7 @@ data class ProfileListResponse(
 
 data class ProfileListItem(
     val id: Int,
+    val user_id: Int,
     val profile_id: String,
     val full_name: String,
     val age: Int,
@@ -18,6 +19,5 @@ data class ProfileListItem(
     val height_cm: Int?,
     val education: String?,
     val occupation: String?,
-    val profile_photo: String?,
-    val is_online: Boolean
+    val profile_photo: String?
 )

@@ -71,6 +71,7 @@ import com.infravo.bhaktmilan.ui.theme.TextMuted
 import com.infravo.bhaktmilan.ui.theme.TextPrimary
 import com.infravo.bhaktmilan.ui.theme.TextSecondary
 import com.infravo.bhaktmilan.ui.viewmodel.MyProfileUiState
+import com.infravo.bhaktmilan.utils.ProfilePhotoUtils
 
 @Composable
 fun MyProfileScreen(
@@ -435,7 +436,7 @@ private fun ProfileHeroCard(
 
                     if (!profile.profile_photo.isNullOrBlank()) {
                         AsyncImage(
-                            model = profile.profile_photo,
+                            model = ProfilePhotoUtils.resolveUrl(profile.profile_photo),
                             contentDescription = "Profile photo. Tap to change.",
                             modifier = Modifier
                                 .size(90.dp)
@@ -951,3 +952,4 @@ private fun ProfileNotFoundState() {
         }
     }
 }
+

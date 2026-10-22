@@ -44,6 +44,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.infravo.bhaktmilan.data.mapper.toOnboardingFormData
@@ -138,6 +139,26 @@ fun AppNavHost(
 
             val uiState by
             profileViewModel.uiState.collectAsState()
+
+            // Refresh the Home profile list whenever this destination
+            // becomes active again, including returning from another screen.
+            val currentBackStackEntry by
+            navController.currentBackStackEntryAsState()
+
+            var hasEnteredHomeOnce by remember {
+                mutableStateOf(false)
+            }
+
+            LaunchedEffect(currentBackStackEntry) {
+                if (currentBackStackEntry?.destination?.route == AppRoutes.HOME) {
+                    if (hasEnteredHomeOnce) {
+                        profileViewModel.refresh()
+                    } else {
+                        // ProfileViewModel already loads profiles on initialization.
+                        hasEnteredHomeOnce = true
+                    }
+                }
+            }
 
             HomeScreen(
                 profiles = uiState.profiles,
@@ -526,7 +547,16 @@ fun AppNavHost(
         // =========================================================
         composable(AppRoutes.REQUESTS) {
 
-            RequestsScreen()
+            RequestsScreen(
+                onProfileClick = { profileId ->
+
+                    if (profileId.isNotBlank()) {
+                        navController.navigate(
+                            "${AppRoutes.USER_PROFILE}/${Uri.encode(profileId)}"
+                        )
+                    }
+                }
+            )
         }
 
 

@@ -17,6 +17,7 @@ fun ProfileListItem.toUiModel(): ProfileListUiModel {
 
     return ProfileListUiModel(
         id = id,
+        userId = user_id,
         profileId = profile_id,
         fullName = full_name,
         age = "$age Years",
@@ -25,7 +26,6 @@ fun ProfileListItem.toUiModel(): ProfileListUiModel {
         height = height_cm?.let { "$it cm" } ?: "-",
         education = education ?: "-",
         occupation = occupation ?: "-",
-        profilePhoto = profile_photo,
-        isOnline = is_online
+        profilePhoto = profile_photo
     )
 }

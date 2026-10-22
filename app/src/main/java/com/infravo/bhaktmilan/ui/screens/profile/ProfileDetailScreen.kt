@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -58,6 +59,7 @@ import com.infravo.bhaktmilan.ui.theme.TextSecondary
 import com.infravo.bhaktmilan.ui.viewmodel.InteractionViewModel
 import com.infravo.bhaktmilan.ui.viewmodel.PremiumViewModel
 import com.infravo.bhaktmilan.ui.viewmodel.ProfileDetailViewModel
+import com.infravo.bhaktmilan.utils.ProfilePhotoUtils
 
 @Composable
 fun ProfileDetailScreen(
@@ -90,8 +92,8 @@ fun ProfileDetailScreen(
     // ==========================================
 
     LaunchedEffect(profileCode) {
-
         viewModel.loadProfile(profileCode)
+        viewModel.loadProfileContact(profileCode)
     }
 
     // ==========================================
@@ -551,27 +553,49 @@ fun ProfileDetailScreen(
                     // CONTACT
                     // ==========================================
 
+
                     DetailSectionCard(
                         title = "Contact",
                         subtitle = "Contact information"
                     ) {
+                        when {
+                            uiState.isContactLoading -> {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = BhaktMaroon
+                                    )
+                                    Text("Checking contact access...")
+                                }
+                            }
 
-                        InfoRow(
-                            label = "WhatsApp",
-                            value =
-                                profile.whatsapp_number ?: "-"
-                        )
+                            !uiState.whatsappNumber.isNullOrBlank() -> {
+                                InfoRow(
+                                    label = "WhatsApp",
+                                    value = uiState.whatsappNumber!!
+                                )
+                            }
+
+                            else -> {
+                                Text(
+                                    text = "WhatsApp contact is available after your interest is accepted.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
 
                         InfoRow(
                             label = "Profile Managed By",
-                            value =
-                                MastersCache
-                                    .getProfileManagedByName(
-                                        profile.profile_managed_by
-                                    )
+                            value = MastersCache.getProfileManagedByName(
+                                profile.profile_managed_by
+                            )
                         )
                     }
-
                     // ==========================================
                     // SEND INTEREST
                     // ==========================================
@@ -835,152 +859,88 @@ fun ProfileDetailScreen(
 private fun ProfileHeroCard(
     profile: com.infravo.bhaktmilan.data.remote.response.ProfileDetail
 ) {
+    val location = LocationCache.getCityName(
+        stateId = profile.state,
+        cityId = profile.city
+    )
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = SurfaceBackground
-        ),
-        border = BorderStroke(
-            1.dp,
-            BorderColor
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 3.dp
-        )
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceBackground),
+        border = BorderStroke(1.dp, BorderColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-
-            Box(
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Large, consistent hero image with rounded top corners.
+            AsyncImage(
+                model = ProfilePhotoUtils.resolveUrl(profile.profile_photo),
+                contentDescription = profile.full_name ?: "Profile",
                 modifier = Modifier
-                    .size(190.dp)
-                    .clip(
-                        RoundedCornerShape(24.dp)
-                    )
+                    .fillMaxWidth()
+                    .height(300.dp)
+                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
+                contentScale = ContentScale.Crop
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-
-                AsyncImage(
-                    model = profile.profile_photo,
-                    contentDescription =
-                        profile.full_name ?: "Profile",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
-
-            Text(
-                text = profile.full_name ?: "-",
-                style =
-                    MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                color = TextPrimary
-            )
-
-            Spacer(
-                modifier = Modifier.height(6.dp)
-            )
-
-            val location =
-                LocationCache.getCityName(
-                    stateId = profile.state,
-                    cityId = profile.city
-                )
-
-            val basicMeta = buildList {
-
-                profile.age?.let {
-                    add("$it years")
-                }
-
-                if (location.isNotBlank()) {
-                    add(location)
-                }
-            }.joinToString("  •  ")
-
-            if (basicMeta.isNotBlank()) {
-
                 Text(
-                    text = basicMeta,
-                    style =
-                        MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
+                    text = profile.full_name?.takeIf { it.isNotBlank() } ?: "Profile",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = TextPrimary
                 )
-            }
 
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
+                val basicMeta = buildList {
+                    profile.age?.let { add("$it years") }
+                    if (location.isNotBlank()) add(location)
+                }.joinToString("  •  ")
 
-            Row(
-                horizontalArrangement =
-                    Arrangement.spacedBy(8.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-
-                if (!profile.sampraday.isNullOrBlank()) {
-
-                    HeroBadge(
-                        text = profile.sampraday
-                            .orEmpty(),
-                        isGold = true
-                    )
-                }
-
-                profile.status
-                    ?.takeIf {
-                        it.isNotBlank()
-                    }
-                    ?.let {
-
-                        HeroBadge(
-                            text = it,
-                            isGold = false
-                        )
-                    }
-            }
-
-            Spacer(
-                modifier = Modifier.height(14.dp)
-            )
-
-            if (profile.is_active == true) {
-
-                Row(
-                    verticalAlignment =
-                        Alignment.CenterVertically,
-                    horizontalArrangement =
-                        Arrangement.spacedBy(6.dp)
-                ) {
-
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(
-                                androidx.compose.ui.graphics
-                                    .Color
-                                    .Unspecified
-                            )
-                    )
-
+                if (basicMeta.isNotBlank()) {
                     Text(
-                        text = "Active profile",
-                        style =
-                            MaterialTheme.typography
-                                .labelMedium,
+                        text = basicMeta,
+                        style = MaterialTheme.typography.titleMedium,
                         color = TextSecondary
                     )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (!profile.sampraday.isNullOrBlank()) {
+                        HeroBadge(text = profile.sampraday.orEmpty(), isGold = true)
+                    }
+                    profile.status?.takeIf { it.isNotBlank() }?.let {
+                        HeroBadge(text = it, isGold = false)
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    if (profile.is_active == true) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF2E9D57))
+                            )
+                            Text(
+                                text = "Active",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color(0xFF278448),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1153,40 +1113,33 @@ private fun QuickFactCard(
     item: QuickFact,
     modifier: Modifier = Modifier
 ) {
-
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = AppBackground
-        ),
-        border = BorderStroke(
-            1.dp,
-            DividerColor
-        )
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = AppBackground),
+        border = BorderStroke(1.dp, DividerColor)
     ) {
-
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement =
-                Arrangement.spacedBy(4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(92.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.Center
         ) {
-
             Text(
                 text = item.label,
-                style =
-                    MaterialTheme.typography.labelSmall,
-                color = TextMuted
+                style = MaterialTheme.typography.labelMedium,
+                color = TextMuted,
+                maxLines = 1
             )
-
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = item.value.ifBlank {
-                    "-"
-                },
-                style =
-                    MaterialTheme.typography.bodyMedium,
+                text = item.value.ifBlank { "-" },
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
                 color = TextPrimary,
-                fontWeight = FontWeight.Medium
+                maxLines = 2
             )
         }
     }

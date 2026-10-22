@@ -2,6 +2,7 @@ package com.infravo.bhaktmilan.ui.model
 
 data class ProfileListUiModel(
     val id: Int,
+    val userId: Int,
     val profileId: String,
     val fullName: String,
     val age: String,
@@ -10,6 +11,5 @@ data class ProfileListUiModel(
     val height: String,
     val education: String,
     val occupation: String,
-    val profilePhoto: String?,
-    val isOnline: Boolean
+    val profilePhoto: String?
 )

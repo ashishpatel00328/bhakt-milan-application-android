@@ -4,11 +4,13 @@ import com.infravo.bhaktmilan.data.network.NetworkResult
 import com.infravo.bhaktmilan.data.remote.api.ApiService
 import com.infravo.bhaktmilan.data.remote.request.CreateProfileRequest
 import com.infravo.bhaktmilan.data.remote.request.UpdateProfileRequest
+import com.infravo.bhaktmilan.data.remote.response.OnlineStatusResponse
 import com.infravo.bhaktmilan.data.remote.response.ProfileDetailResponse
 import com.infravo.bhaktmilan.data.remote.response.ProfileListResponse
 import com.infravo.bhaktmilan.data.remote.response.ProfilePhotoUploadResponse
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.infravo.bhaktmilan.data.remote.response.ProfileContactResponse
 
 @Singleton
 class ProfileRepository @Inject constructor(
@@ -90,6 +92,26 @@ class ProfileRepository @Inject constructor(
 
         return safeApiCall {
             apiService.uploadProfilePhoto(profilePhoto)
+        }
+    }
+
+    suspend fun getProfileContact(
+        profileId: String
+    ): NetworkResult<ProfileContactResponse> {
+        return safeApiCall {
+            apiService.getProfileContact(profileId)
+        }
+    }
+
+    // ==========================================
+// Online Status
+// ==========================================
+
+    suspend fun getOnlineStatus(
+        userId: Int
+    ): NetworkResult<OnlineStatusResponse> {
+        return safeApiCall {
+            apiService.getOnlineStatus(userId)
         }
     }
 }

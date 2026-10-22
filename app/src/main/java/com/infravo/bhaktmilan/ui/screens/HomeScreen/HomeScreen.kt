@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -43,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -52,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.infravo.bhaktmilan.data.remote.response.OnlineStatusResponse
 import com.infravo.bhaktmilan.ui.model.ProfileListUiModel
 import com.infravo.bhaktmilan.ui.theme.AppBackground
 import com.infravo.bhaktmilan.ui.theme.BhaktMaroon
@@ -64,6 +67,8 @@ import com.infravo.bhaktmilan.ui.theme.TextMuted
 import com.infravo.bhaktmilan.ui.theme.TextPrimary
 import com.infravo.bhaktmilan.ui.theme.TextSecondary
 import com.infravo.bhaktmilan.ui.viewmodel.InteractionViewModel
+import com.infravo.bhaktmilan.ui.viewmodel.ProfileViewModel
+import com.infravo.bhaktmilan.utils.ProfilePhotoUtils
 
 @Composable
 fun HomeScreen(
@@ -77,6 +82,49 @@ fun HomeScreen(
 
     val interactionState by
     interactionViewModel.uiState.collectAsState()
+
+    // Online status is fetched using each profile owner's backend userId.
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val onlineStatuses by profileViewModel.onlineStatuses.collectAsState()
+
+    // Use the actual user IDs as the effect key. This reruns when the loaded
+    // profile IDs change, without restarting for unrelated recompositions.
+    val profileUserIds = remember(profiles) {
+        profiles.asSequence()
+            .map { it.userId }
+            .distinct()
+            .filter { it > 0 }
+            .toList()
+    }
+
+    LaunchedEffect(profileUserIds) {
+        android.util.Log.e(
+            "PRESENCE_TRACE",
+            "HomeScreen status effect started; profiles=${profiles.size}, validUserIds=$profileUserIds"
+        )
+
+        if (profileUserIds.isEmpty()) {
+            android.util.Log.e(
+                "PRESENCE_TRACE",
+                "No valid backend userIds yet; waiting for profiles to load"
+            )
+        }
+
+        profileUserIds.forEach { userId ->
+            android.util.Log.e(
+                "PRESENCE_TRACE",
+                "STEP 0: requesting status for backend userId=$userId"
+            )
+            profileViewModel.loadOnlineStatus(userId)
+        }
+    }
+
+    LaunchedEffect(onlineStatuses) {
+        android.util.Log.e(
+            "PRESENCE_TRACE",
+            "Status state updated; returned userIds=${onlineStatuses.keys}"
+        )
+    }
 
     // =========================================================
     // LOAD SHORTLISTED PROFILES
@@ -401,6 +449,7 @@ fun HomeScreen(
 
                     ProfileCard(
                         profile = profile,
+                        onlineStatus = onlineStatuses[profile.userId],
 
                         onProfileClick = {
                             onProfileClick(profile)
@@ -533,6 +582,7 @@ private fun HomeFilterChip(
 @Composable
 private fun ProfileCard(
     profile: ProfileListUiModel,
+    onlineStatus: OnlineStatusResponse?,
     onProfileClick: () -> Unit,
     onShortlistClick: () -> Unit,
     isShortlisted: Boolean,
@@ -598,13 +648,10 @@ private fun ProfileCard(
             } else {
 
                 AsyncImage(
-                    model = profile.profilePhoto,
-                    contentDescription =
-                        profile.fullName,
-                    modifier =
-                        Modifier.fillMaxSize(),
-                    contentScale =
-                        ContentScale.Crop
+                    model = ProfilePhotoUtils.resolveUrl(profile.profilePhoto),
+                    contentDescription = profile.fullName,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
             }
         }
@@ -637,6 +684,52 @@ private fun ProfileCard(
                 modifier =
                     Modifier.fillMaxWidth()
             )
+
+            // Online/offline status from the dedicated status API.
+            // Keep a visible placeholder while the request is in progress so
+            // the status area is easy to verify during testing.
+            Spacer(modifier = Modifier.height(5.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when {
+                                onlineStatus == null -> Color.LightGray
+                                onlineStatus.isOnline -> Color(0xFF2EAD63)
+                                else -> Color.Gray
+                            }
+                        )
+                )
+
+                val statusText = when {
+                    onlineStatus == null -> "Checking status…"
+                    onlineStatus.isOnline -> "Online"
+                    else -> when (val minutes = onlineStatus.minutesAgo) {
+                        null -> "Offline"
+                        0 -> "Offline · Just now"
+                        1 -> "Offline · 1 min ago"
+                        else -> "Offline · $minutes min ago"
+                    }
+                }
+
+                Text(
+                    text = statusText,
+                    color = when {
+                        onlineStatus == null -> TextMuted
+                        onlineStatus.isOnline -> Color(0xFF2EAD63)
+                        else -> TextSecondary
+                    },
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Spacer(
                 modifier = Modifier.height(4.dp)

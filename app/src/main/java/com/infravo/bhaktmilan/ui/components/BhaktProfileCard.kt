@@ -1,3 +1,4 @@
+
 package com.infravo.bhaktmilan.ui.components
 
 import androidx.compose.foundation.clickable
@@ -20,8 +21,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.infravo.bhaktmilan.utils.ProfilePhotoUtils
 
 @Composable
 fun BhaktProfileCard(
@@ -39,7 +42,6 @@ fun BhaktProfileCard(
     onClick: () -> Unit,
     onSendInterest: () -> Unit
 ) {
-
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -54,24 +56,22 @@ fun BhaktProfileCard(
             defaultElevation = 4.dp
         )
     ) {
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
                 AsyncImage(
-                    model = profilePhoto,
+                    model = ProfilePhotoUtils.resolveUrl(profilePhoto),
                     contentDescription = fullName,
                     modifier = Modifier
                         .size(88.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(16.dp)),
+                    contentScale = ContentScale.Crop
                 )
 
                 Spacer(
@@ -81,11 +81,9 @@ fun BhaktProfileCard(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-
                         Text(
                             text = fullName,
                             style = MaterialTheme.typography.titleMedium,
@@ -93,7 +91,6 @@ fun BhaktProfileCard(
                         )
 
                         if (isPremium) {
-
                             Spacer(
                                 modifier = Modifier.width(8.dp)
                             )
@@ -117,7 +114,6 @@ fun BhaktProfileCard(
                     )
 
                     if (height.isNotBlank()) {
-
                         Spacer(
                             modifier = Modifier.height(4.dp)
                         )
@@ -130,7 +126,6 @@ fun BhaktProfileCard(
                     }
 
                     if (education.isNotBlank()) {
-
                         Spacer(
                             modifier = Modifier.height(4.dp)
                         )
@@ -143,7 +138,6 @@ fun BhaktProfileCard(
                     }
 
                     if (occupation.isNotBlank()) {
-
                         Spacer(
                             modifier = Modifier.height(4.dp)
                         )
@@ -172,7 +166,6 @@ fun BhaktProfileCard(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
-
                 Text(
                     text = interestButtonText
                 )
