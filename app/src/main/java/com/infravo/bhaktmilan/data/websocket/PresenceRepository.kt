@@ -62,6 +62,11 @@ class PresenceRepository @Inject constructor(
     private fun handleSnapshot(json: JSONObject) {
         val users = json.optJSONArray("users") ?: return
 
+        Log.d(
+            "PRESENCE_DEBUG",
+            "Snapshot received: users=${users?.length() ?: 0}"
+        )
+
         val updates = buildMap {
             for (index in 0 until users.length()) {
                 val user = users.optJSONObject(index) ?: continue
@@ -70,18 +75,28 @@ class PresenceRepository @Inject constructor(
             }
         }
 
+        Log.d(
+            "PRESENCE_DEBUG",
+            "Parsed statuses=${updates.size}, userIds=${updates.keys}"
+        )
+
         if (updates.isEmpty()) return
 
         _statuses.value = _statuses.value + updates
+
+        Log.d(
+            "PRESENCE_DEBUG",
+            "Total statuses in state=${_statuses.value.size}"
+        )
     }
+
 
     private fun handlePresence(json: JSONObject) {
         val status = parseStatus(json) ?: return
-
-        // Ignore events for users that are not currently tracked.
-        // A snapshot or subscription will establish their initial state.
-        if (status.userId !in _statuses.value) return
-
+        Log.d(
+            "PRESENCE_DEBUG",
+            "Presence event parsed: userId=${status?.userId}, online=${status?.isOnline}"
+        )
         _statuses.value = _statuses.value +
                 (status.userId to status)
     }
@@ -113,24 +128,37 @@ class PresenceRepository @Inject constructor(
         )
     }
 
-    /**
-     * Call when a user becomes relevant to the app's presence UI.
-     * The manager will own deduplication and socket subscription delivery.
-     */
-    fun trackUsers(userIds: Collection<Int>) {
-        val validIds = userIds.filter { it > 0 }.toSet()
-        if (validIds.isEmpty()) return
+    private val trackingLock = Any()
+    private val consumers = mutableMapOf<String, Set<Int>>()
 
-        socketManager.get().subscribeToUsers(validIds)
-    }
+    fun setTrackedUsers(
+        owner: String,
+        userIds: Collection<Int>
+    ) {
+        val newIds = userIds.filter { it > 0 }.toSet()
 
-    /**
-     * Remove only when no active screen or retained list needs these IDs.
-     */
-    fun untrackUsers(userIds: Collection<Int>) {
-        val validIds = userIds.filter { it > 0 }.toSet()
-        if (validIds.isEmpty()) return
+        val (toSubscribe, toUnsubscribe) = synchronized(trackingLock) {
+            val oldIds = consumers.values.flatten().toSet()
 
-        socketManager.get().unsubscribeFromUsers(validIds)
+            if (newIds.isEmpty()) {
+                consumers.remove(owner)
+            } else {
+                consumers[owner] = newIds
+            }
+
+            val newDesiredIds = consumers.values.flatten().toSet()
+
+            (newDesiredIds - oldIds) to (oldIds - newDesiredIds)
+        }
+
+        if (toSubscribe.isNotEmpty()) {
+            socketManager.get().subscribeToUsers(toSubscribe)
+        }
+
+        if (toUnsubscribe.isNotEmpty()) {
+            socketManager.get().unsubscribeFromUsers(toUnsubscribe)
+
+            _statuses.value = _statuses.value - toUnsubscribe
+        }
     }
 }

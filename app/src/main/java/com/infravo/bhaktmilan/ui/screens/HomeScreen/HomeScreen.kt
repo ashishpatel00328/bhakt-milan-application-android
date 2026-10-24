@@ -35,6 +35,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,6 +55,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import kotlinx.coroutines.delay
+import java.text.ParsePosition
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import com.infravo.bhaktmilan.data.remote.response.OnlineStatusResponse
 import com.infravo.bhaktmilan.ui.model.ProfileListUiModel
 import com.infravo.bhaktmilan.ui.theme.AppBackground
@@ -68,6 +75,7 @@ import com.infravo.bhaktmilan.ui.theme.TextPrimary
 import com.infravo.bhaktmilan.ui.theme.TextSecondary
 import com.infravo.bhaktmilan.ui.viewmodel.InteractionViewModel
 import com.infravo.bhaktmilan.ui.viewmodel.ProfileViewModel
+import com.infravo.bhaktmilan.ui.viewmodel.PresenceViewModel
 import com.infravo.bhaktmilan.utils.ProfilePhotoUtils
 
 @Composable
@@ -83,47 +91,69 @@ fun HomeScreen(
     val interactionState by
     interactionViewModel.uiState.collectAsState()
 
-    // Online status is fetched using each profile owner's backend userId.
-    val profileViewModel: ProfileViewModel = hiltViewModel()
-    val onlineStatuses by profileViewModel.onlineStatuses.collectAsState()
+    // Live presence is shared through the existing WebSocket/repository layer.
+    // The API state is retained only as a fallback; this screen no longer makes
+    // one status API request per profile.
+    val presenceViewModel: PresenceViewModel = hiltViewModel()
+    val liveStatuses by presenceViewModel.statuses.collectAsState()
 
-    // Use the actual user IDs as the effect key. This reruns when the loaded
-    // profile IDs change, without restarting for unrelated recompositions.
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val apiFallbackStatuses by profileViewModel.onlineStatuses.collectAsState()
+
+    // One shared clock keeps all visible last-seen labels fresh without
+    // starting a separate coroutine for every profile card.
+    var currentTimeMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            currentTimeMillis = System.currentTimeMillis()
+        }
+    }
+
+    // Subscribe to the backend User IDs for profiles currently loaded on Home.
+    // The repository calculates subscription differences and shares ownership
+    // with other screens, such as ProfileDetailScreen.
     val profileUserIds = remember(profiles) {
         profiles.asSequence()
             .map { it.userId }
-            .distinct()
             .filter { it > 0 }
+            .distinct()
             .toList()
     }
 
     LaunchedEffect(profileUserIds) {
-        android.util.Log.e(
+        android.util.Log.d(
             "PRESENCE_TRACE",
-            "HomeScreen status effect started; profiles=${profiles.size}, validUserIds=$profileUserIds"
+            "HomeScreen tracking ${profileUserIds.size} valid user IDs"
         )
-
-        if (profileUserIds.isEmpty()) {
-            android.util.Log.e(
-                "PRESENCE_TRACE",
-                "No valid backend userIds yet; waiting for profiles to load"
-            )
-        }
-
-        profileUserIds.forEach { userId ->
-            android.util.Log.e(
-                "PRESENCE_TRACE",
-                "STEP 0: requesting status for backend userId=$userId"
-            )
-            profileViewModel.loadOnlineStatus(userId)
-        }
+        presenceViewModel.setTrackedUsers(
+            owner = "home",
+            userIds = profileUserIds
+        )
     }
 
-    LaunchedEffect(onlineStatuses) {
-        android.util.Log.e(
-            "PRESENCE_TRACE",
-            "Status state updated; returned userIds=${onlineStatuses.keys}"
+    LaunchedEffect(profiles) {
+        android.util.Log.d(
+            "PROFILE_LIST_DEBUG",
+            "HomeScreen received ${profiles.size} profiles"
         )
+
+        android.util.Log.d(
+            "PROFILE_LIST_DEBUG",
+            "HomeScreen profile IDs=${
+                profiles.take(5).map { it.profileId }
+            }"
+        )
+    }
+    // Release only Home's ownership when this screen leaves composition.
+    // Profile-detail subscriptions remain active if that screen still needs them.
+    DisposableEffect(presenceViewModel) {
+        onDispose {
+            presenceViewModel.setTrackedUsers(
+                owner = "home",
+                userIds = emptyList()
+            )
+        }
     }
 
     // =========================================================
@@ -449,7 +479,9 @@ fun HomeScreen(
 
                     ProfileCard(
                         profile = profile,
-                        onlineStatus = onlineStatuses[profile.userId],
+                        onlineStatus = liveStatuses[profile.userId]
+                            ?: apiFallbackStatuses[profile.userId],
+                        currentTimeMillis = currentTimeMillis,
 
                         onProfileClick = {
                             onProfileClick(profile)
@@ -583,6 +615,7 @@ private fun HomeFilterChip(
 private fun ProfileCard(
     profile: ProfileListUiModel,
     onlineStatus: OnlineStatusResponse?,
+    currentTimeMillis: Long,
     onProfileClick: () -> Unit,
     onShortlistClick: () -> Unit,
     isShortlisted: Boolean,
@@ -685,9 +718,8 @@ private fun ProfileCard(
                     Modifier.fillMaxWidth()
             )
 
-            // Online/offline status from the dedicated status API.
-            // Keep a visible placeholder while the request is in progress so
-            // the status area is easy to verify during testing.
+            // Prefer the live WebSocket status; use the API value only as a fallback.
+            // If neither source has a record yet, show unknown/checking status.
             Spacer(modifier = Modifier.height(5.dp))
 
             Row(
@@ -707,15 +739,34 @@ private fun ProfileCard(
                         )
                 )
 
+                val lastSeenLabel = formatLastSeen(
+                    lastSeen = onlineStatus?.lastSeen,
+                    nowMillis = currentTimeMillis
+                )
+
+                // API minutesAgo is a fallback for missing/unparseable timestamps.
+                // When lastSeen is available, calculate elapsed time locally.
+                val offlineLabel = lastSeenLabel ?: onlineStatus?.minutesAgo?.let { minutes ->
+                    when {
+                        minutes <= 0 -> "Just now"
+                        minutes == 1 -> "1 min ago"
+                        minutes < 60 -> "$minutes min ago"
+                        minutes < 1_440 -> {
+                            val hours = minutes / 60
+                            if (hours == 1) "1 hour ago" else "$hours hours ago"
+                        }
+                        else -> {
+                            val days = minutes / 1_440
+                            if (days == 1) "1 day ago" else "$days days ago"
+                        }
+                    }
+                }
+
                 val statusText = when {
                     onlineStatus == null -> "Checking status…"
                     onlineStatus.isOnline -> "Online"
-                    else -> when (val minutes = onlineStatus.minutesAgo) {
-                        null -> "Offline"
-                        0 -> "Offline · Just now"
-                        1 -> "Offline · 1 min ago"
-                        else -> "Offline · $minutes min ago"
-                    }
+                    offlineLabel != null -> "Offline · $offlineLabel"
+                    else -> "Offline"
                 }
 
                 Text(
@@ -1035,6 +1086,68 @@ private fun EmptyProfilesState(
                 overflow =
                     TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+
+/**
+ * Formats an ISO-8601 last-seen timestamp as a relative label.
+ *
+ * Examples: "Just now", "5 min ago", "2 hours ago", "3 days ago".
+ * Returns null when the timestamp is missing or cannot be parsed; callers can
+ * then fall back to the API-provided minutesAgo value.
+ */
+private fun formatLastSeen(
+    lastSeen: String?,
+    nowMillis: Long
+): String? {
+    if (lastSeen.isNullOrBlank()) return null
+
+    val timestamp = lastSeen.trim()
+    val normalizedTimestamp = timestamp.replace(
+        Regex("""\.(\d{3})\d+(?=[Zz]|[+-]\d{2}:?\d{2}$)"""),
+        ".$1"
+    )
+
+    val patterns = listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSX",
+        "yyyy-MM-dd'T'HH:mm:ssX"
+    )
+
+    var parsedDate: Date? = null
+    for (pattern in patterns) {
+        try {
+            val formatter = SimpleDateFormat(pattern, Locale.US).apply {
+                isLenient = false
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val position = ParsePosition(0)
+            val candidate = formatter.parse(normalizedTimestamp, position)
+            if (candidate != null && position.index == normalizedTimestamp.length) {
+                parsedDate = candidate
+                break
+            }
+        } catch (_: IllegalArgumentException) {
+            // Try the next supported ISO-8601 pattern.
+        }
+    }
+
+    val lastSeenMillis = parsedDate?.time ?: return null
+    val elapsedMinutes = ((nowMillis - lastSeenMillis).coerceAtLeast(0L)) / 60_000L
+
+    return when {
+        elapsedMinutes == 0L -> "Just now"
+        elapsedMinutes < 60L -> "$elapsedMinutes min ago"
+        elapsedMinutes < 1_440L -> {
+            val hours = elapsedMinutes / 60L
+            if (hours == 1L) "1 hour ago" else "$hours hours ago"
+        }
+        else -> {
+            val days = elapsedMinutes / 1_440L
+            if (days == 1L) "1 day ago" else "$days days ago"
         }
     }
 }

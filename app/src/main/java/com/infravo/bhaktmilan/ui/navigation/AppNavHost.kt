@@ -547,16 +547,7 @@ fun AppNavHost(
         // =========================================================
         composable(AppRoutes.REQUESTS) {
 
-            RequestsScreen(
-                onProfileClick = { profileId ->
-
-                    if (profileId.isNotBlank()) {
-                        navController.navigate(
-                            "${AppRoutes.USER_PROFILE}/${Uri.encode(profileId)}"
-                        )
-                    }
-                }
-            )
+            RequestsScreen()
         }
 
 

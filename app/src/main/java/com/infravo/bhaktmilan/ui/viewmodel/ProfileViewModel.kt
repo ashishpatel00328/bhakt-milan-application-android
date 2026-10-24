@@ -56,14 +56,45 @@ class ProfileViewModel @Inject constructor(
                 )
             ) {
                 is NetworkResult.Success -> {
+                    val apiProfiles = result.data.data.results
+
+                    android.util.Log.d(
+                        "PROFILE_LIST_DEBUG",
+                        "API SUCCESS: raw profile count=${apiProfiles.size}"
+                    )
+
+                    val mappedProfiles = apiProfiles.map { it.toUiModel() }
+
+                    android.util.Log.d(
+                        "PROFILE_LIST_DEBUG",
+                        "MAPPED count=${mappedProfiles.size}"
+                    )
+
+                    android.util.Log.d(
+                        "PROFILE_LIST_DEBUG",
+                        "Mapped profile IDs=${
+                            mappedProfiles.take(5).map { it.profileId }
+                        }"
+                    )
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        profiles = result.data.data.map { it.toUiModel() },
+                        profiles = mappedProfiles,
                         error = null
+                    )
+
+                    android.util.Log.d(
+                        "PROFILE_LIST_DEBUG",
+                        "STATE updated: profiles=${_uiState.value.profiles.size}"
                     )
                 }
 
                 is NetworkResult.Error -> {
+                    android.util.Log.e(
+                        "PROFILE_LIST_DEBUG",
+                        "API ERROR: ${result.message}"
+                    )
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = result.message

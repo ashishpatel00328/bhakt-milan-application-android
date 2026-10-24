@@ -121,6 +121,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         // Development server address; use the reachable host for your device.
         private const val WS_SERVER_BASE_URL =
-            "http://192.168.1.4:8000"
+            "http://192.168.29.166:8000"
     }
 }

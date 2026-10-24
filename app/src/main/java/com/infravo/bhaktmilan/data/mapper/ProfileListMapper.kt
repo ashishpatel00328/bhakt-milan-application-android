@@ -17,7 +17,7 @@ fun ProfileListItem.toUiModel(): ProfileListUiModel {
 
     return ProfileListUiModel(
         id = id,
-        userId = user_id,
+        userId = userId,
         profileId = profile_id,
         fullName = full_name,
         age = "$age Years",

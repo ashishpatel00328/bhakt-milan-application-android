@@ -26,6 +26,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,8 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -59,17 +61,52 @@ import com.infravo.bhaktmilan.ui.theme.TextSecondary
 import com.infravo.bhaktmilan.ui.viewmodel.InteractionViewModel
 import com.infravo.bhaktmilan.ui.viewmodel.PremiumViewModel
 import com.infravo.bhaktmilan.ui.viewmodel.ProfileDetailViewModel
+import com.infravo.bhaktmilan.ui.viewmodel.PresenceViewModel
+import com.infravo.bhaktmilan.data.remote.response.OnlineStatusResponse
 import com.infravo.bhaktmilan.utils.ProfilePhotoUtils
+import kotlinx.coroutines.delay
+import java.text.ParsePosition
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun ProfileDetailScreen(
     profileCode: String,
+    userId: Int = 0,
     viewModel: ProfileDetailViewModel = hiltViewModel(),
     interactionViewModel: InteractionViewModel = hiltViewModel(),
     premiumViewModel: PremiumViewModel = hiltViewModel()
 ) {
 
     val uiState by viewModel.uiState.collectAsState()
+
+    // Use the same shared live-presence stream as HomeScreen.
+    val presenceViewModel: PresenceViewModel = hiltViewModel()
+    val liveStatuses by presenceViewModel.statuses.collectAsState()
+    val detailOwner = remember(profileCode) { "profile-detail-$profileCode" }
+    var currentTimeMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            currentTimeMillis = System.currentTimeMillis()
+        }
+    }
+
+    LaunchedEffect(detailOwner, userId) {
+        presenceViewModel.setTrackedUsers(
+            owner = detailOwner,
+            userIds = if (userId > 0) listOf(userId) else emptyList()
+        )
+    }
+
+    DisposableEffect(presenceViewModel, detailOwner) {
+        onDispose {
+            presenceViewModel.setTrackedUsers(owner = detailOwner, userIds = emptyList())
+        }
+    }
 
     val interactionState by
     interactionViewModel.uiState.collectAsState()
@@ -92,8 +129,8 @@ fun ProfileDetailScreen(
     // ==========================================
 
     LaunchedEffect(profileCode) {
+
         viewModel.loadProfile(profileCode)
-        viewModel.loadProfileContact(profileCode)
     }
 
     // ==========================================
@@ -213,7 +250,9 @@ fun ProfileDetailScreen(
                     // ==========================================
 
                     ProfileHeroCard(
-                        profile = profile
+                        profile = profile,
+                        onlineStatus = liveStatuses[userId],
+                        currentTimeMillis = currentTimeMillis
                     )
 
                     // ==========================================
@@ -553,49 +592,27 @@ fun ProfileDetailScreen(
                     // CONTACT
                     // ==========================================
 
-
                     DetailSectionCard(
                         title = "Contact",
                         subtitle = "Contact information"
                     ) {
-                        when {
-                            uiState.isContactLoading -> {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        strokeWidth = 2.dp,
-                                        color = BhaktMaroon
-                                    )
-                                    Text("Checking contact access...")
-                                }
-                            }
 
-                            !uiState.whatsappNumber.isNullOrBlank() -> {
-                                InfoRow(
-                                    label = "WhatsApp",
-                                    value = uiState.whatsappNumber!!
-                                )
-                            }
-
-                            else -> {
-                                Text(
-                                    text = "WhatsApp contact is available after your interest is accepted.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary
-                                )
-                            }
-                        }
+                        InfoRow(
+                            label = "WhatsApp",
+                            value =
+                                profile.whatsapp_number ?: "-"
+                        )
 
                         InfoRow(
                             label = "Profile Managed By",
-                            value = MastersCache.getProfileManagedByName(
-                                profile.profile_managed_by
-                            )
+                            value =
+                                MastersCache
+                                    .getProfileManagedByName(
+                                        profile.profile_managed_by
+                                    )
                         )
                     }
+
                     // ==========================================
                     // SEND INTEREST
                     // ==========================================
@@ -857,46 +874,82 @@ fun ProfileDetailScreen(
 
 @Composable
 private fun ProfileHeroCard(
-    profile: com.infravo.bhaktmilan.data.remote.response.ProfileDetail
+    profile: com.infravo.bhaktmilan.data.remote.response.ProfileDetail,
+    onlineStatus: OnlineStatusResponse?,
+    currentTimeMillis: Long
 ) {
-    val location = LocationCache.getCityName(
-        stateId = profile.state,
-        cityId = profile.city
-    )
+    val isOnline = onlineStatus?.isOnline ?: profile.is_online
+    val lastSeen = onlineStatus?.lastSeen ?: profile.last_seen
+    val minutesAgo = onlineStatus?.minutesAgo ?: profile.minutes_ago
+    val relativeLastSeen = formatProfileLastSeen(lastSeen, currentTimeMillis)
+        ?: minutesAgo?.let { minutes ->
+            when {
+                minutes <= 0 -> "Just now"
+                minutes == 1 -> "1 min ago"
+                minutes < 60 -> "$minutes min ago"
+                minutes < 1_440 -> {
+                    val hours = minutes / 60
+                    if (hours == 1) "1 hour ago" else "$hours hours ago"
+                }
+                else -> {
+                    val days = minutes / 1_440
+                    if (days == 1) "1 day ago" else "$days days ago"
+                }
+            }
+        }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(440.dp),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceBackground),
         border = BorderStroke(1.dp, BorderColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Large, consistent hero image with rounded top corners.
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Photo fills the complete hero card; no empty column beside it.
             AsyncImage(
                 model = ProfilePhotoUtils.resolveUrl(profile.profile_photo),
                 contentDescription = profile.full_name ?: "Profile",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp)
-                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
+            )
+
+            // Bottom gradient keeps the overlaid profile text readable.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to Color.Transparent,
+                                0.42f to Color.Transparent,
+                                1.0f to Color(0xE6000000)
+                            )
+                        )
+                    )
             )
 
             Column(
                 modifier = Modifier
+                    .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .padding(horizontal = 22.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(horizontal = 20.dp, vertical = 22.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = profile.full_name?.takeIf { it.isNotBlank() } ?: "Profile",
+                    text = profile.full_name ?: "-",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold
                     ),
-                    color = TextPrimary
+                    color = Color.White
                 )
 
+                val location = LocationCache.getCityName(
+                    stateId = profile.state,
+                    cityId = profile.city
+                )
                 val basicMeta = buildList {
                     profile.age?.let { add("$it years") }
                     if (location.isNotBlank()) add(location)
@@ -905,14 +958,13 @@ private fun ProfileHeroCard(
                 if (basicMeta.isNotBlank()) {
                     Text(
                         text = basicMeta,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextSecondary
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.92f)
                     )
                 }
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (!profile.sampraday.isNullOrBlank()) {
@@ -921,26 +973,39 @@ private fun ProfileHeroCard(
                     profile.status?.takeIf { it.isNotBlank() }?.let {
                         HeroBadge(text = it, isGold = false)
                     }
-                    Spacer(modifier = Modifier.weight(1f))
-                    if (profile.is_active == true) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF2E9D57))
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(9.dp)
+                            .clip(CircleShape)
+                            .background(
+                                when (isOnline) {
+                                    true -> Color(0xFF36D477)
+                                    false -> Color(0xFFBDBDBD)
+                                    null -> Color.LightGray
+                                }
                             )
-                            Text(
-                                text = "Active",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = Color(0xFF278448),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
+                    )
+                    Text(
+                        text = when (isOnline) {
+                            true -> "Online"
+                            false -> if (relativeLastSeen != null) {
+                                "Offline · $relativeLastSeen"
+                            } else {
+                                "Offline"
+                            }
+                            null -> "Status unavailable"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White
+                    )
                 }
             }
         }
@@ -1113,33 +1178,40 @@ private fun QuickFactCard(
     item: QuickFact,
     modifier: Modifier = Modifier
 ) {
+
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = AppBackground),
-        border = BorderStroke(1.dp, DividerColor)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = AppBackground
+        ),
+        border = BorderStroke(
+            1.dp,
+            DividerColor
+        )
     ) {
+
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(92.dp)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(4.dp)
         ) {
+
             Text(
                 text = item.label,
-                style = MaterialTheme.typography.labelMedium,
-                color = TextMuted,
-                maxLines = 1
+                style =
+                    MaterialTheme.typography.labelSmall,
+                color = TextMuted
             )
-            Spacer(modifier = Modifier.height(6.dp))
+
             Text(
-                text = item.value.ifBlank { "-" },
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold
-                ),
+                text = item.value.ifBlank {
+                    "-"
+                },
+                style =
+                    MaterialTheme.typography.bodyMedium,
                 color = TextPrimary,
-                maxLines = 2
+                fontWeight = FontWeight.Medium
             )
         }
     }
@@ -1201,5 +1273,51 @@ private fun InfoRow(
         HorizontalDivider(
             color = DividerColor
         )
+    }
+}
+
+/** Formats an ISO-8601 timestamp as a relative last-seen label. */
+private fun formatProfileLastSeen(lastSeen: String?, nowMillis: Long): String? {
+    if (lastSeen.isNullOrBlank()) return null
+    val normalized = lastSeen.trim().replace(
+        Regex("""\.(\d{3})\d+(?=[Zz]|[+-]\d{2}:?\d{2}$)"""),
+        ".$1"
+    )
+    val patterns = listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSX",
+        "yyyy-MM-dd'T'HH:mm:ssX"
+    )
+    var parsed: Date? = null
+    for (pattern in patterns) {
+        try {
+            val formatter = SimpleDateFormat(pattern, Locale.US).apply {
+                isLenient = false
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val position = ParsePosition(0)
+            val candidate = formatter.parse(normalized, position)
+            if (candidate != null && position.index == normalized.length) {
+                parsed = candidate
+                break
+            }
+        } catch (_: IllegalArgumentException) {
+            // Try the next supported ISO-8601 pattern.
+        }
+    }
+    val timestamp = parsed?.time ?: return null
+    val minutes = ((nowMillis - timestamp).coerceAtLeast(0L)) / 60_000L
+    return when {
+        minutes == 0L -> "Just now"
+        minutes < 60L -> "$minutes min ago"
+        minutes < 1_440L -> {
+            val hours = minutes / 60L
+            if (hours == 1L) "1 hour ago" else "$hours hours ago"
+        }
+        else -> {
+            val days = minutes / 1_440L
+            if (days == 1L) "1 day ago" else "$days days ago"
+        }
     }
 }
