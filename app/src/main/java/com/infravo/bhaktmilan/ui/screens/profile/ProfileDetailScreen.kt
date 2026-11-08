@@ -3,6 +3,7 @@ package com.infravo.bhaktmilan.ui.screens.profile
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -38,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -129,8 +132,13 @@ fun ProfileDetailScreen(
     // ==========================================
 
     LaunchedEffect(profileCode) {
-
         viewModel.loadProfile(profileCode)
+        // Periodically refresh the profile response as a fallback if the
+        // presence WebSocket has not emitted a newer status yet.
+        while (true) {
+            delay(60_000L)
+            viewModel.loadProfile(profileCode)
+        }
     }
 
     // ==========================================
@@ -211,7 +219,7 @@ fun ProfileDetailScreen(
             // Loading
             // ==========================================
 
-            uiState.isLoading -> {
+            uiState.isLoading && uiState.profile == null -> {
 
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -231,523 +239,533 @@ fun ProfileDetailScreen(
             uiState.profile != null -> {
 
                 val profile = uiState.profile!!
+                val detailScrollState = rememberScrollState()
+                val photoFade = (detailScrollState.value / 650f).coerceIn(0f, 1f)
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(
-                            rememberScrollState()
-                        )
-                        .padding(
-                            horizontal = 16.dp,
-                            vertical = 14.dp
-                        ),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    ProfilePhotoBackdrop(profile = profile, fadeProgress = photoFade)
 
-                    // ==========================================
-                    // PROFILE HERO
-                    // ==========================================
-
-                    ProfileHeroCard(
-                        profile = profile,
-                        onlineStatus = liveStatuses[userId],
-                        currentTimeMillis = currentTimeMillis
-                    )
-
-                    // ==========================================
-                    // ABOUT
-                    // ==========================================
-
-                    if (!profile.about_me.isNullOrBlank()) {
-
-                        DetailSectionCard(
-                            title = "About",
-                            subtitle = "A little about this person"
-                        ) {
-
-                            Text(
-                                text = profile.about_me.orEmpty(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary,
-                                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
-                            )
-                        }
-                    }
-
-                    // ==========================================
-                    // QUICK FACTS
-                    // ==========================================
-
-                    DetailSectionCard(
-                        title = "Quick Facts",
-                        subtitle = "At a glance"
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(detailScrollState)
+                            .padding(bottom = 104.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
+                        Spacer(modifier = Modifier.height(300.dp))
 
-                        QuickFactsGrid(
-                            items = listOf(
-                                QuickFact(
-                                    "Age",
-                                    profile.age?.toString() ?: "-"
-                                ),
-                                QuickFact(
-                                    "Height",
-                                    profile.height_cm?.let {
-                                        "$it cm"
-                                    } ?: "-"
-                                ),
-                                QuickFact(
-                                    "Marital Status",
-                                    MastersCache
-                                        .getMaritalStatusName(
-                                            profile.marital_status
-                                        )
-                                ),
-                                QuickFact(
-                                    "Gender",
-                                    MastersCache
-                                        .getGenderName(
-                                            profile.gender
-                                        )
-                                ),
-                                QuickFact(
-                                    "Education",
-                                    profile.education ?: "-"
-                                ),
-                                QuickFact(
-                                    "Occupation",
-                                    profile.occupation ?: "-"
-                                )
-                            )
-                        )
-                    }
-
-                    // ==========================================
-                    // PERSONAL INFORMATION
-                    // ==========================================
-
-                    DetailSectionCard(
-                        title = "Personal Information",
-                        subtitle = "Personal and lifestyle details"
-                    ) {
-
-                        InfoRow(
-                            label = "Date of Birth",
-                            value =
-                                profile.date_of_birth ?: "-"
+                        ProfileHeroInfoCard(
+                            profile = profile,
+                            onlineStatus = liveStatuses[userId],
+                            currentTimeMillis = currentTimeMillis
                         )
 
-                        InfoRow(
-                            label = "Weight",
-                            value =
-                                profile.weight_kg?.let {
-                                    "$it kg"
-                                } ?: "-"
-                        )
+                        // ==========================================
+                        // ABOUT
+                        // ==========================================
 
-                        InfoRow(
-                            label = "Blood Group",
-                            value =
-                                MastersCache
-                                    .getBloodGroupName(
-                                        profile.blood_group
-                                    )
-                        )
+                        if (!profile.about_me.isNullOrBlank()) {
 
-                        InfoRow(
-                            label = "Diet Preference",
-                            value =
-                                MastersCache
-                                    .getDietPreferenceName(
-                                        profile.diet_preference
-                                    )
-                        )
-
-                        InfoRow(
-                            label = "Mother Tongue",
-                            value =
-                                profile.mother_tongue ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Disability",
-                            value =
-                                MastersCache
-                                    .getDisabilityName(
-                                        profile.disability
-                                    )
-                        )
-                    }
-
-                    // ==========================================
-                    // RELIGIOUS & COMMUNITY
-                    // ==========================================
-
-                    DetailSectionCard(
-                        title = "Religious & Community",
-                        subtitle = "Spiritual and family background"
-                    ) {
-
-                        InfoRow(
-                            label = "Sampraday",
-                            value =
-                                profile.sampraday ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Guru",
-                            value =
-                                profile.guru ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Caste",
-                            value =
-                                profile.caste ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Sub Caste",
-                            value =
-                                profile.sub_caste ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Gotra",
-                            value =
-                                profile.gotra ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Nakshatra",
-                            value =
-                                profile.nakshatra ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Zodiac",
-                            value =
-                                profile.zodiac ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Manglik",
-                            value =
-                                when (profile.manglik) {
-                                    true -> "Yes"
-                                    false -> "No"
-                                    null -> "-"
-                                }
-                        )
-                    }
-
-                    // ==========================================
-                    // EDUCATION & CAREER
-                    // ==========================================
-
-                    DetailSectionCard(
-                        title = "Education & Career",
-                        subtitle = "Professional background"
-                    ) {
-
-                        InfoRow(
-                            label = "Education",
-                            value =
-                                profile.education ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Occupation",
-                            value =
-                                profile.occupation ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Annual Income",
-                            value =
-                                profile.annual_income ?: "-"
-                        )
-                    }
-
-                    // ==========================================
-                    // FAMILY
-                    // ==========================================
-
-                    DetailSectionCard(
-                        title = "Family Information",
-                        subtitle = "Family background"
-                    ) {
-
-                        InfoRow(
-                            label = "Father Name",
-                            value =
-                                profile.father_name ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Father Occupation",
-                            value =
-                                profile.father_occupation ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Mother Name",
-                            value =
-                                profile.mother_name ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Married Brothers",
-                            value =
-                                profile.married_brothers
-                                    ?.toString()
-                                    ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Unmarried Brothers",
-                            value =
-                                profile.unmarried_brothers
-                                    ?.toString()
-                                    ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Married Sisters",
-                            value =
-                                profile.married_sisters
-                                    ?.toString()
-                                    ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Unmarried Sisters",
-                            value =
-                                profile.unmarried_sisters
-                                    ?.toString()
-                                    ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Family Satsangi",
-                            value =
-                                when (
-                                    profile.family_is_satsangi
-                                ) {
-                                    true -> "Yes"
-                                    false -> "No"
-                                    null -> "-"
-                                }
-                        )
-                    }
-
-                    // ==========================================
-                    // LOCATION
-                    // ==========================================
-
-                    DetailSectionCard(
-                        title = "Location",
-                        subtitle = "Current and birth location"
-                    ) {
-
-                        InfoRow(
-                            label = "Country",
-                            value =
-                                LocationCache
-                                    .getCountryName(
-                                        profile.country
-                                    )
-                        )
-
-                        InfoRow(
-                            label = "State",
-                            value =
-                                LocationCache.getStateName(
-                                    countryId =
-                                        profile.country,
-                                    stateId =
-                                        profile.state
-                                )
-                        )
-
-                        InfoRow(
-                            label = "City",
-                            value =
-                                LocationCache.getCityName(
-                                    stateId =
-                                        profile.state,
-                                    cityId =
-                                        profile.city
-                                )
-                        )
-
-                        InfoRow(
-                            label = "Birth Place",
-                            value =
-                                profile.birth_place ?: "-"
-                        )
-                    }
-
-                    // ==========================================
-                    // CONTACT
-                    // ==========================================
-
-                    DetailSectionCard(
-                        title = "Contact",
-                        subtitle = "Contact information"
-                    ) {
-
-                        InfoRow(
-                            label = "WhatsApp",
-                            value =
-                                profile.whatsapp_number ?: "-"
-                        )
-
-                        InfoRow(
-                            label = "Profile Managed By",
-                            value =
-                                MastersCache
-                                    .getProfileManagedByName(
-                                        profile.profile_managed_by
-                                    )
-                        )
-                    }
-
-                    // ==========================================
-                    // SEND INTEREST
-                    // ==========================================
-
-                    PremiumGate(
-
-                        subscription =
-                            premiumState.subscription,
-
-                        plans =
-                            premiumState.plans,
-
-                        selectedPlanId =
-                            premiumState.selectedPlanId,
-
-                        isSubmitting =
-                            premiumState.isSubscribing,
-
-                        subscribeSuccess =
-                            premiumState.subscribeSuccess,
-
-                        // Subscribe Response Code
-                        subscribeResponseCode =
-                            premiumState.subscribeResponseCode,
-
-                        // Fresh Premium Check
-                        onCheckPremium = {
-
-                            premiumViewModel
-                                .getLatestSubscription()
-                        },
-
-                        // Premium Plan
-                        onPlanSelected = { planId ->
-
-                            premiumViewModel
-                                .selectPlan(planId)
-                        },
-
-                        // Premium Request
-                        onPremiumRequest = {
-
-                            premiumViewModel
-                                .subscribe()
-                        },
-
-                        onClearSubscribeSuccess = {
-
-                            premiumViewModel
-                                .clearSubscribeSuccess()
-                        },
-
-                        // Protected Action
-                        onProtectedAction = {
-
-                            showInterestDialog = true
-                        },
-
-                        // Send Interest Button
-                        content = { onClick ->
-
-                            Button(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp),
-                                enabled =
-                                    !interactionState
-                                        .isActionLoading,
-                                shape =
-                                    RoundedCornerShape(16.dp),
-                                colors =
-                                    ButtonDefaults.buttonColors(
-                                        containerColor =
-                                            BhaktMaroon,
-                                        contentColor =
-                                            SurfaceBackground,
-                                        disabledContainerColor =
-                                            BhaktMaroon
-                                                .copy(
-                                                    alpha = 0.45f
-                                                )
-                                    ),
-                                onClick = onClick
+                            DetailSectionCard(
+                                title = "About",
+                                subtitle = "A little about this person"
                             ) {
 
-                                if (
-                                    interactionState
-                                        .isActionLoading
-                                ) {
-
-                                    CircularProgressIndicator(
-                                        modifier =
-                                            Modifier.size(
-                                                21.dp
-                                            ),
-                                        color =
-                                            SurfaceBackground,
-                                        strokeWidth = 2.dp
-                                    )
-
-                                } else {
-
-                                    Text(
-                                        text = "Send Interest",
-                                        fontWeight =
-                                            FontWeight.SemiBold
-                                    )
-                                }
+                                Text(
+                                    text = profile.about_me.orEmpty(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary,
+                                    lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
+                                )
                             }
                         }
-                    )
 
-                    Spacer(
-                        modifier =
-                            Modifier.height(10.dp)
-                    )
+                        // ==========================================
+                        // QUICK FACTS
+                        // ==========================================
 
-                    // ==========================================
-                    // FOOTER
-                    // ==========================================
+                        DetailSectionCard(
+                            title = "Quick Facts",
+                            subtitle = "At a glance"
+                        ) {
 
-                    Text(
-                        text =
-                            "Bhakt Milan • Devotion meets destiny",
-                        modifier =
-                            Modifier.fillMaxWidth(),
-                        style =
-                            MaterialTheme.typography.labelSmall,
-                        color = TextMuted
-                    )
+                            QuickFactsGrid(
+                                items = listOf(
+                                    QuickFact(
+                                        "Age",
+                                        profile.age?.toString() ?: "-"
+                                    ),
+                                    QuickFact(
+                                        "Height",
+                                        profile.height_cm?.let {
+                                            "$it cm"
+                                        } ?: "-"
+                                    ),
+                                    QuickFact(
+                                        "Marital Status",
+                                        MastersCache
+                                            .getMaritalStatusName(
+                                                profile.marital_status
+                                            )
+                                    ),
+                                    QuickFact(
+                                        "Gender",
+                                        MastersCache
+                                            .getGenderName(
+                                                profile.gender
+                                            )
+                                    ),
+                                    QuickFact(
+                                        "Education",
+                                        profile.education ?: "-"
+                                    ),
+                                    QuickFact(
+                                        "Occupation",
+                                        profile.occupation ?: "-"
+                                    )
+                                )
+                            )
+                        }
 
-                    Spacer(
-                        modifier =
-                            Modifier.height(12.dp)
-                    )
+                        // ==========================================
+                        // PERSONAL INFORMATION
+                        // ==========================================
+
+                        DetailSectionCard(
+                            title = "Personal Information",
+                            subtitle = "Personal and lifestyle details"
+                        ) {
+
+                            InfoRow(
+                                label = "Date of Birth",
+                                value =
+                                    profile.date_of_birth ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Weight",
+                                value =
+                                    profile.weight_kg?.let {
+                                        "$it kg"
+                                    } ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Blood Group",
+                                value =
+                                    MastersCache
+                                        .getBloodGroupName(
+                                            profile.blood_group
+                                        )
+                            )
+
+                            InfoRow(
+                                label = "Diet Preference",
+                                value =
+                                    MastersCache
+                                        .getDietPreferenceName(
+                                            profile.diet_preference
+                                        )
+                            )
+
+                            InfoRow(
+                                label = "Mother Tongue",
+                                value =
+                                    profile.mother_tongue ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Disability",
+                                value =
+                                    MastersCache
+                                        .getDisabilityName(
+                                            profile.disability
+                                        )
+                            )
+                        }
+
+                        // ==========================================
+                        // RELIGIOUS & COMMUNITY
+                        // ==========================================
+
+                        DetailSectionCard(
+                            title = "Religious & Community",
+                            subtitle = "Spiritual and family background"
+                        ) {
+
+                            InfoRow(
+                                label = "Sampraday",
+                                value =
+                                    profile.sampraday ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Guru",
+                                value =
+                                    profile.guru ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Caste",
+                                value =
+                                    profile.caste ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Sub Caste",
+                                value =
+                                    profile.sub_caste ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Gotra",
+                                value =
+                                    profile.gotra ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Nakshatra",
+                                value =
+                                    profile.nakshatra ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Zodiac",
+                                value =
+                                    profile.zodiac ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Manglik",
+                                value =
+                                    when (profile.manglik) {
+                                        true -> "Yes"
+                                        false -> "No"
+                                        null -> "-"
+                                    }
+                            )
+                        }
+
+                        // ==========================================
+                        // EDUCATION & CAREER
+                        // ==========================================
+
+                        DetailSectionCard(
+                            title = "Education & Career",
+                            subtitle = "Professional background"
+                        ) {
+
+                            InfoRow(
+                                label = "Education",
+                                value =
+                                    profile.education ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Occupation",
+                                value =
+                                    profile.occupation ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Annual Income",
+                                value =
+                                    profile.annual_income ?: "-"
+                            )
+                        }
+
+                        // ==========================================
+                        // FAMILY
+                        // ==========================================
+
+                        DetailSectionCard(
+                            title = "Family Information",
+                            subtitle = "Family background"
+                        ) {
+
+                            InfoRow(
+                                label = "Father Name",
+                                value =
+                                    profile.father_name ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Father Occupation",
+                                value =
+                                    profile.father_occupation ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Mother Name",
+                                value =
+                                    profile.mother_name ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Married Brothers",
+                                value =
+                                    profile.married_brothers
+                                        ?.toString()
+                                        ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Unmarried Brothers",
+                                value =
+                                    profile.unmarried_brothers
+                                        ?.toString()
+                                        ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Married Sisters",
+                                value =
+                                    profile.married_sisters
+                                        ?.toString()
+                                        ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Unmarried Sisters",
+                                value =
+                                    profile.unmarried_sisters
+                                        ?.toString()
+                                        ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Family Satsangi",
+                                value =
+                                    when (
+                                        profile.family_is_satsangi
+                                    ) {
+                                        true -> "Yes"
+                                        false -> "No"
+                                        null -> "-"
+                                    }
+                            )
+                        }
+
+                        // ==========================================
+                        // LOCATION
+                        // ==========================================
+
+                        DetailSectionCard(
+                            title = "Location",
+                            subtitle = "Current and birth location"
+                        ) {
+
+                            InfoRow(
+                                label = "Country",
+                                value =
+                                    LocationCache
+                                        .getCountryName(
+                                            profile.country
+                                        )
+                            )
+
+                            InfoRow(
+                                label = "State",
+                                value =
+                                    LocationCache.getStateName(
+                                        countryId =
+                                            profile.country,
+                                        stateId =
+                                            profile.state
+                                    )
+                            )
+
+                            InfoRow(
+                                label = "City",
+                                value =
+                                    LocationCache.getCityName(
+                                        stateId =
+                                            profile.state,
+                                        cityId =
+                                            profile.city
+                                    )
+                            )
+
+                            InfoRow(
+                                label = "Birth Place",
+                                value =
+                                    profile.birth_place ?: "-"
+                            )
+                        }
+
+                        // ==========================================
+                        // CONTACT
+                        // ==========================================
+
+                        DetailSectionCard(
+                            title = "Contact",
+                            subtitle = "Contact information"
+                        ) {
+
+                            InfoRow(
+                                label = "WhatsApp",
+                                value =
+                                    profile.whatsapp_number ?: "-"
+                            )
+
+                            InfoRow(
+                                label = "Profile Managed By",
+                                value =
+                                    MastersCache
+                                        .getProfileManagedByName(
+                                            profile.profile_managed_by
+                                        )
+                            )
+                        }
+
+                        // ==========================================
+                        // SEND INTEREST
+                        // ==========================================
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(10.dp)
+                        )
+
+                        // ==========================================
+                        // FOOTER
+                        // ==========================================
+
+                        Text(
+                            text =
+                                "Bhakt Milan • Devotion meets destiny",
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                            style =
+                                MaterialTheme.typography.labelSmall,
+                            color = TextMuted
+                        )
+
+                        Spacer(
+                            modifier =
+                                Modifier.height(12.dp)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .background(SurfaceBackground)
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                    ) {
+                        PremiumGate(
+
+                            subscription =
+                                premiumState.subscription,
+
+                            plans =
+                                premiumState.plans,
+
+                            selectedPlanId =
+                                premiumState.selectedPlanId,
+
+                            isSubmitting =
+                                premiumState.isSubscribing,
+
+                            subscribeSuccess =
+                                premiumState.subscribeSuccess,
+
+                            // Subscribe Response Code
+                            subscribeResponseCode =
+                                premiumState.subscribeResponseCode,
+
+                            // Fresh Premium Check
+                            onCheckPremium = {
+
+                                premiumViewModel
+                                    .getLatestSubscription()
+                            },
+
+                            // Premium Plan
+                            onPlanSelected = { planId ->
+
+                                premiumViewModel
+                                    .selectPlan(planId)
+                            },
+
+                            // Premium Request
+                            onPremiumRequest = {
+
+                                premiumViewModel
+                                    .subscribe()
+                            },
+
+                            onClearSubscribeSuccess = {
+
+                                premiumViewModel
+                                    .clearSubscribeSuccess()
+                            },
+
+                            // Protected Action
+                            onProtectedAction = {
+
+                                showInterestDialog = true
+                            },
+
+                            // Send Interest Button
+                            content = { onClick ->
+
+                                Button(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp),
+                                    enabled =
+                                        !interactionState
+                                            .isActionLoading,
+                                    shape =
+                                        RoundedCornerShape(28.dp),
+                                    colors =
+                                        ButtonDefaults.buttonColors(
+                                            containerColor =
+                                                BhaktMaroon,
+                                            contentColor =
+                                                SurfaceBackground,
+                                            disabledContainerColor =
+                                                BhaktMaroon
+                                                    .copy(
+                                                        alpha = 0.45f
+                                                    )
+                                        ),
+                                    onClick = onClick
+                                ) {
+
+                                    if (
+                                        interactionState
+                                            .isActionLoading
+                                    ) {
+
+                                        CircularProgressIndicator(
+                                            modifier =
+                                                Modifier.size(
+                                                    21.dp
+                                                ),
+                                            color =
+                                                SurfaceBackground,
+                                            strokeWidth = 2.dp
+                                        )
+
+                                    } else {
+
+                                        Text(
+                                            text = "➤   Send Interest",
+                                            fontWeight =
+                                                FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+                        )
+
+
+                    }
                 }
 
                 // ==========================================
@@ -869,11 +887,58 @@ fun ProfileDetailScreen(
 }
 
 // ==========================================
-// PROFILE HERO
+// PROFILE PHOTO BACKDROP
 // ==========================================
 
 @Composable
-private fun ProfileHeroCard(
+private fun ProfilePhotoBackdrop(
+    profile: com.infravo.bhaktmilan.data.remote.response.ProfileDetail,
+    fadeProgress: Float
+) {
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    val visibleAlpha = (1f - fadeProgress).coerceIn(0f, 1f)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(390.dp)
+            .graphicsLayer { alpha = visibleAlpha }
+            .background(BhaktMaroonLight)
+    ) {
+        AsyncImage(
+            model = ProfilePhotoUtils.resolveUrl(profile.profile_photo),
+            contentDescription = profile.full_name ?: "Profile photo",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(190.dp)
+                .align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xB3000000))))
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 20.dp, top = 28.dp)
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color(0x99000000))
+                .clickable { backDispatcher?.onBackPressed() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text("‹", color = Color.White, style = MaterialTheme.typography.headlineLarge)
+        }
+    }
+}
+
+// ==========================================
+// PROFILE HERO INFO SHEET
+// ==========================================
+
+@Composable
+private fun ProfileHeroInfoCard(
     profile: com.infravo.bhaktmilan.data.remote.response.ProfileDetail,
     onlineStatus: OnlineStatusResponse?,
     currentTimeMillis: Long
@@ -898,116 +963,63 @@ private fun ProfileHeroCard(
             }
         }
 
-    Card(
+    val location = LocationCache.getCityName(stateId = profile.state, cityId = profile.city)
+    val stateName = LocationCache.getStateName(countryId = profile.country, stateId = profile.state)
+    val locationText = listOf(location, stateName).filter { it.isNotBlank() }.distinct().joinToString(", ")
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(440.dp),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceBackground),
-        border = BorderStroke(1.dp, BorderColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+            .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+            .background(SurfaceBackground)
+            .padding(horizontal = 20.dp, vertical = 22.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Photo fills the complete hero card; no empty column beside it.
-            AsyncImage(
-                model = ProfilePhotoUtils.resolveUrl(profile.profile_photo),
-                contentDescription = profile.full_name ?: "Profile",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = profile.full_name ?: "Bhakt Milan Member",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                color = TextPrimary
             )
-
-            // Bottom gradient keeps the overlaid profile text readable.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to Color.Transparent,
-                                0.42f to Color.Transparent,
-                                1.0f to Color(0xE6000000)
-                            )
-                        )
-                    )
-            )
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 22.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = profile.full_name ?: "-",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = Color.White
-                )
-
-                val location = LocationCache.getCityName(
-                    stateId = profile.state,
-                    cityId = profile.city
-                )
-                val basicMeta = buildList {
-                    profile.age?.let { add("$it years") }
-                    if (location.isNotBlank()) add(location)
-                }.joinToString("  •  ")
-
-                if (basicMeta.isNotBlank()) {
-                    Text(
-                        text = basicMeta,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = 0.92f)
-                    )
-                }
-
+            if (isOnline == true) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (!profile.sampraday.isNullOrBlank()) {
-                        HeroBadge(text = profile.sampraday.orEmpty(), isGold = true)
-                    }
-                    profile.status?.takeIf { it.isNotBlank() }?.let {
-                        HeroBadge(text = it, isGold = false)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Row(
+                    modifier = Modifier.clip(CircleShape).background(Color(0xFFDDF4E9))
+                        .padding(horizontal = 13.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(9.dp)
-                            .clip(CircleShape)
-                            .background(
-                                when (isOnline) {
-                                    true -> Color(0xFF36D477)
-                                    false -> Color(0xFFBDBDBD)
-                                    null -> Color.LightGray
-                                }
-                            )
-                    )
-                    Text(
-                        text = when (isOnline) {
-                            true -> "Online"
-                            false -> if (relativeLastSeen != null) {
-                                "Offline · $relativeLastSeen"
-                            } else {
-                                "Offline"
-                            }
-                            null -> "Status unavailable"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
-                    )
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF167A54)))
+                    Text("Online", color = Color(0xFF126746), fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelLarge)
                 }
             }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        val ageLocation = buildList {
+            profile.age?.let { add("$it yrs") }
+            if (locationText.isNotBlank()) add(locationText)
+        }.joinToString(" · ")
+        if (ageLocation.isNotBlank()) {
+            Text("⌖  $ageLocation", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
+        }
+
+        // Last-seen is displayed here for any offline duration, not only the first 20 minutes.
+        if (isOnline != true && !relativeLastSeen.isNullOrBlank()) {
+            Spacer(Modifier.height(7.dp))
+            Text("Last active · $relativeLastSeen", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        }
+
+        if (!profile.sampraday.isNullOrBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Box(Modifier.clip(CircleShape).background(Color(0xFFF9E4E3)).padding(horizontal = 16.dp, vertical = 9.dp)) {
+                Text(profile.sampraday.orEmpty(), color = BhaktMaroon, fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        if (!profile.status.isNullOrBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text(profile.status.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         }
     }
 }
@@ -1066,7 +1078,9 @@ private fun DetailSectionCard(
 ) {
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
             containerColor = SurfaceBackground

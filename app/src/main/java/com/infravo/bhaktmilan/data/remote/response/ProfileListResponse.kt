@@ -10,7 +10,9 @@ data class ProfileListResponse(
 )
 
 data class ProfilePageData(
-    val results: List<ProfileListItem>
+    val results: List<ProfileListItem>,
+    val next: String? = null,
+    val previous: String? = null
 )
 
 data class ProfileListItem(

@@ -38,6 +38,7 @@ import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.Card
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -46,6 +47,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,6 +92,7 @@ fun MyProfileScreen(
     onUploadPhoto: (Uri) -> Unit
 ) {
     val context = LocalContext.current
+    var showProfilePhotoPreview by remember { mutableStateOf(false) }
 
     // Crop the selected image first. Upload only after the user confirms the crop.
     val cropImageLauncher = rememberLauncherForActivityResult(
@@ -222,7 +228,7 @@ fun MyProfileScreen(
                     ) {
                         Text(
                             text = "My Profile",
-                            color = TextPrimary,
+                            color = BhaktMaroon,
                             fontSize = 27.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Serif
@@ -258,8 +264,8 @@ fun MyProfileScreen(
 
                 ProfileHeroCard(
                     profile = profile,
-                    onViewProfile = {
-                        onViewProfile(profile)
+                    onViewPhoto = {
+                        showProfilePhotoPreview = true
                     },
                     onEditProfile = onEditProfile,
                     onChangePhoto = {
@@ -269,6 +275,33 @@ fun MyProfileScreen(
                     },
                     isUploadingPhoto = uiState.isUploadingPhoto
                 )
+
+                if (showProfilePhotoPreview && !profile.profile_photo.isNullOrBlank()) {
+                    Dialog(
+                        onDismissRequest = {
+                            showProfilePhotoPreview = false
+                        }
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(SurfaceBackground)
+                                .padding(12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = ProfilePhotoUtils.resolveUrl(profile.profile_photo),
+                                contentDescription = "Profile photo preview",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(440.dp)
+                                    .clip(RoundedCornerShape(14.dp)),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                    }
+                }
 
                 Spacer(
                     modifier = Modifier.height(18.dp)
@@ -390,7 +423,7 @@ fun MyProfileScreen(
 @Composable
 private fun ProfileHeroCard(
     profile: ProfileDetail,
-    onViewProfile: () -> Unit,
+    onViewPhoto: () -> Unit,
     onEditProfile: () -> Unit,
     onChangePhoto: () -> Unit,
     isUploadingPhoto: Boolean
@@ -428,8 +461,8 @@ private fun ProfileHeroCard(
                             shape = CircleShape
                         )
                         .clickable(
-                            enabled = !isUploadingPhoto,
-                            onClick = onChangePhoto
+                            enabled = !isUploadingPhoto && !profile.profile_photo.isNullOrBlank(),
+                            onClick = onViewPhoto
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -464,6 +497,10 @@ private fun ProfileHeroCard(
                                 width = 2.dp,
                                 color = SurfaceBackground,
                                 shape = CircleShape
+                            )
+                            .clickable(
+                                enabled = !isUploadingPhoto,
+                                onClick = onChangePhoto
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -531,14 +568,17 @@ private fun ProfileHeroCard(
                         modifier = Modifier
                             .clip(RoundedCornerShape(9.dp))
                             .background(BhaktMaroonLight)
-                            .clickable(onClick = onViewProfile)
+                            .clickable(
+                                enabled = !profile.profile_photo.isNullOrBlank(),
+                                onClick = onViewPhoto
+                            )
                             .padding(
                                 horizontal = 11.dp,
                                 vertical = 7.dp
                             )
                     ) {
                         Text(
-                            text = "View Profile  ›",
+                            text = "View Profile Photo  ›",
                             color = BhaktMaroon,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
@@ -952,4 +992,3 @@ private fun ProfileNotFoundState() {
         }
     }
 }
-

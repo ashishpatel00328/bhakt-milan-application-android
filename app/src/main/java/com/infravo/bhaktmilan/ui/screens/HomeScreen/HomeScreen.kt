@@ -1,8 +1,10 @@
 package com.infravo.bhaktmilan.ui.screens.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,8 +19,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -26,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Star
@@ -42,9 +47,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -99,6 +107,10 @@ fun HomeScreen(
 
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val apiFallbackStatuses by profileViewModel.onlineStatuses.collectAsState()
+    val isLoadingMore by profileViewModel.isLoadingMore.collectAsState()
+
+    // Keep one grid state so we can detect when the user approaches the end.
+    val gridState = rememberLazyGridState()
 
     // One shared clock keeps all visible last-seen labels fresh without
     // starting a separate coroutine for every profile card.
@@ -124,11 +136,29 @@ fun HomeScreen(
     LaunchedEffect(profileUserIds) {
         android.util.Log.d(
             "PRESENCE_TRACE",
-            "HomeScreen tracking ${profileUserIds.size} valid user IDs"
+            "HomeScreen tracking ${profileUserIds.size} valid backend user IDs: $profileUserIds"
         )
+
+        // Keep the live WebSocket subscription and also load the existing API
+        // status as a fallback. The UI observes both maps below.
         presenceViewModel.setTrackedUsers(
             owner = "home",
             userIds = profileUserIds
+        )
+
+        profileUserIds.forEach { userId ->
+            android.util.Log.d(
+                "PRESENCE_TRACE",
+                "Requesting API online-status fallback for backend userId=$userId"
+            )
+            profileViewModel.loadOnlineStatus(userId)
+        }
+    }
+
+    LaunchedEffect(liveStatuses, apiFallbackStatuses) {
+        android.util.Log.d(
+            "PRESENCE_TRACE",
+            "Home presence updated: websocketIds=${liveStatuses.keys}, apiFallbackIds=${apiFallbackStatuses.keys}"
         )
     }
 
@@ -183,31 +213,41 @@ fun HomeScreen(
         mutableStateOf(HomeQuickFilter.ALL)
     }
 
+    // Search is intentionally limited to Sampradaya only.
     val filteredProfiles = remember(
         profiles,
         searchQuery
     ) {
-
         if (searchQuery.isBlank()) {
-
             profiles
-
         } else {
-
             profiles.filter { profile ->
-
-                profile.fullName.contains(
-                    searchQuery,
+                profile.sampradaya.contains(
+                    searchQuery.trim(),
                     ignoreCase = true
-                ) ||
-                        profile.location.contains(
-                            searchQuery,
-                            ignoreCase = true
-                        ) ||
-                        profile.sampradaya.contains(
-                            searchQuery,
-                            ignoreCase = true
-                        )
+                )
+            }
+        }
+    }
+
+    // Load the next cursor page when the user is within five grid items of
+    // the end. Search is local to the profiles already fetched, so pagination
+    // is triggered only when the full list (no active search) is displayed.
+    LaunchedEffect(gridState, profiles.size, searchQuery, isLoadingMore) {
+        if (searchQuery.isNotBlank()) return@LaunchedEffect
+
+        snapshotFlow {
+            val layoutInfo = gridState.layoutInfo
+            val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            val totalItems = layoutInfo.totalItemsCount
+            lastVisibleIndex to totalItems
+        }.collect { (lastVisibleIndex, totalItems) ->
+            if (
+                totalItems > 0 &&
+                lastVisibleIndex >= totalItems - 5 &&
+                !isLoadingMore
+            ) {
+                profileViewModel.loadNextProfiles()
             }
         }
     }
@@ -219,198 +259,199 @@ fun HomeScreen(
     ) {
 
         // =========================================================
-        // HEADER
+        // REDESIGNED HEADER
         // =========================================================
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 18.dp
-                ),
+                .padding(start = 18.dp, end = 18.dp, top = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+//            Box(
+//                modifier = Modifier
+//                    .size(48.dp)
+//                    .clip(RoundedCornerShape(17.dp))
+//                    .background(BhaktMaroon),
+//                contentAlignment = Alignment.Center
+//            ) {
+//                // Keep a built-in Material icon so no new image asset is required.
+//                Icon(
+//                    imageVector = Icons.Outlined.FavoriteBorder,
+//                    contentDescription = "Bhakt Milan logo",
+//                      tint = Color(0xFFF6DDD7),
+//                    modifier = Modifier.size(25.dp)
+//                )
+//            }
 
-            Column(
-                modifier = Modifier.weight(1f)
+            Spacer(Modifier.width(10.dp))
+
+//            Column(modifier = Modifier.weight(1f)) {
+//                Text(
+//                    text = "Bhakt Milan",
+//                    color = Color(0xFF2A1218),
+//                    fontFamily = FontFamily.Serif,
+//                    fontSize = 23.sp,
+//                    fontWeight = FontWeight.Bold,
+//                    letterSpacing = (-0.5).sp,
+//                    maxLines = 1
+//                )
+//                Spacer(Modifier.height(2.dp))
+//                Text(
+//                    text = "Devotion meets destiny",
+//                    color = Color(0xFF80636A),
+//                    fontSize = 12.sp,
+//                    fontWeight = FontWeight.Normal,
+//                    maxLines = 1
+//                )
+//            }
+
+//            Box(
+//                modifier = Modifier
+//                    .size(44.dp)
+//                    .shadow(6.dp, CircleShape)
+//                    .clip(CircleShape)
+//                    .background(Color.White)
+//                    .clickable(
+//                        interactionSource = remember { MutableInteractionSource() },
+//                        indication = null
+//                    ) { onNotificationClick() },
+//                contentAlignment = Alignment.Center
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Outlined.NotificationsNone,
+//                    contentDescription = "Notifications",
+//                    tint = Color(0xFF2A1218),
+//                    modifier = Modifier.size(22.dp)
+//                )
+//                Box(
+//                    modifier = Modifier
+//                        .align(Alignment.TopEnd)
+//                        .padding(top = 9.dp, end = 8.dp)
+//                        .size(8.dp)
+//                        .clip(CircleShape)
+//                        .background(Color(0xFFC23B63))
+//                )
+//            }
+        }
+
+//        Spacer(Modifier.height(17.dp))
+
+        // =========================================================
+        // SAMPRADAYA-ONLY SEARCH + FILTER ACTION
+        // =========================================================
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp)
+                    .shadow(7.dp, RoundedCornerShape(40.dp))
+                    .clip(RoundedCornerShape(40.dp))
+                    .background(Color.White)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-
-                Text(
-                    text = "Bhakt Milan",
-                    color = BhaktMaroon,
-                    fontFamily = FontFamily.Serif,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.sp
+                Icon(
+                    imageVector = Icons.Outlined.Search,
+                    contentDescription = "Search Sampradaya",
+                    tint = BhaktMaroon,
+                    modifier = Modifier.size(22.dp)
                 )
 
-                Spacer(
-                    modifier = Modifier.height(2.dp)
-                )
+                Spacer(Modifier.width(10.dp))
 
-                Text(
-                    text = "Devotion meets destiny",
-                    color = PremiumGoldDark,
-                    fontFamily = FontFamily.Serif,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Normal,
-                    letterSpacing = 0.8.sp
-                )
+                Box(modifier = Modifier.weight(1f)) {
+                    if (searchQuery.isEmpty()) {
+                        Text(
+                            text = "Search by Sampradaya",
+                            color = Color(0xFF80636A),
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            color = Color(0xFF2A1218),
+                            fontSize = 14.sp
+                        ),
+                        cursorBrush = Brush.verticalGradient(
+                            colors = listOf(BhaktMaroon, BhaktMaroon)
+                        )
+                    )
+                }
             }
 
-            Icon(
-                imageVector =
-                    Icons.Outlined.NotificationsNone,
-                contentDescription = "Notifications",
-                tint = TextPrimary,
-                modifier = Modifier
-                    .size(23.dp)
-                    .clickable {
-                        onNotificationClick()
-                    }
-            )
-
-            Spacer(
-                modifier = Modifier.width(18.dp)
-            )
-
-            Icon(
-                imageVector =
-                    Icons.Outlined.FilterList,
-                contentDescription = "Filters",
-                tint = BhaktMaroon,
-                modifier = Modifier
-                    .size(23.dp)
-                    .clickable {
-                        onFilterClick()
-                    }
-            )
+//            Box(
+//                modifier = Modifier
+//                    .size(52.dp)
+//                    .clip(CircleShape)
+//                    .background(BhaktMaroon)
+//                    .clickable(
+//                        indication = null,
+//                        interactionSource = remember { MutableInteractionSource() }
+//                    ) { onFilterClick() },
+//                contentAlignment = Alignment.Center
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Outlined.FilterList,
+//                    contentDescription = "Filters",
+//                    tint = Color.White,
+//                    modifier = Modifier.size(23.dp)
+//                )
+//            }
         }
 
-        Spacer(
-            modifier = Modifier.height(18.dp)
-        )
+        Spacer(Modifier.height(14.dp))
 
         // =========================================================
-        // SEARCH
+        // QUICK FILTER CHIPS
         // =========================================================
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(52.dp)
-                .clip(
-                    RoundedCornerShape(14.dp)
-                )
-                .background(SurfaceBackground)
-                .border(
-                    width = 1.dp,
-                    color = BorderColor,
-                    shape = RoundedCornerShape(14.dp)
-                )
-                .padding(horizontal = 14.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-
-            Icon(
-                imageVector = Icons.Outlined.Search,
-                contentDescription = "Search",
-                tint = BhaktMaroon,
-                modifier = Modifier.size(21.dp)
-            )
-
-            Spacer(
-                modifier = Modifier.width(10.dp)
-            )
-
-            BasicTextField(
-                value = searchQuery,
-                onValueChange = {
-                    searchQuery = it
-                },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                textStyle = TextStyle(
-                    color = TextPrimary,
-                    fontSize = 14.sp
-                ),
-                decorationBox = { innerTextField ->
-
-                    Box {
-
-                        if (searchQuery.isEmpty()) {
-
-                            Text(
-                                text =
-                                    "Search by name, city or Sampradaya",
-                                color = TextMuted,
-                                fontSize = 14.sp
-                            )
-                        }
-
-                        innerTextField()
-                    }
-                }
-            )
-        }
-
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
-
-        // =========================================================
-        // QUICK FILTERS
-        // =========================================================
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement =
-                Arrangement.spacedBy(8.dp)
-        ) {
-
             HomeFilterChip(
                 text = "All",
-                selected =
-                    selectedFilter ==
-                            HomeQuickFilter.ALL,
-                onClick = {
-                    selectedFilter =
-                        HomeQuickFilter.ALL
-                }
+                selected = selectedFilter == HomeQuickFilter.ALL,
+                onClick = { selectedFilter = HomeQuickFilter.ALL }
             )
-
             HomeFilterChip(
                 text = "New",
-                selected =
-                    selectedFilter ==
-                            HomeQuickFilter.NEW,
-                onClick = {
-                    selectedFilter =
-                        HomeQuickFilter.NEW
-                }
+                selected = selectedFilter == HomeQuickFilter.NEW,
+                onClick = { selectedFilter = HomeQuickFilter.NEW }
             )
-
             HomeFilterChip(
-                text = "Active Now",
-                selected =
-                    selectedFilter ==
-                            HomeQuickFilter.ACTIVE_NOW,
-                onClick = {
-                    selectedFilter =
-                        HomeQuickFilter.ACTIVE_NOW
-                }
+                text = "Online",
+                selected = selectedFilter == HomeQuickFilter.ACTIVE_NOW,
+                onClick = { selectedFilter = HomeQuickFilter.ACTIVE_NOW },
+                showOnlineDot = true
+            )
+            HomeFilterChip(
+                text = "Nearby",
+                selected = false,
+                onClick = { onFilterClick() },
+                showLocationIcon = true
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(22.dp)
-        )
+        Spacer(Modifier.height(18.dp))
 
         // =========================================================
         // SECTION TITLE
@@ -419,30 +460,30 @@ fun HomeScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
+                .padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-
             Text(
                 text = "Recommended for you",
-                color = TextPrimary,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF2A1218),
+                fontFamily = FontFamily.Serif,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
 
             Text(
                 text = "See All",
                 color = BhaktMaroon,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable { onFilterClick() }
             )
         }
 
-        Spacer(
-            modifier = Modifier.height(14.dp)
-        )
+        Spacer(Modifier.height(12.dp))
 
         // =========================================================
         // PROFILE LIST
@@ -457,6 +498,7 @@ fun HomeScreen(
         } else {
 
             LazyVerticalGrid(
+                state = gridState,
                 columns = GridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
@@ -479,8 +521,18 @@ fun HomeScreen(
 
                     ProfileCard(
                         profile = profile,
-                        onlineStatus = liveStatuses[profile.userId]
-                            ?: apiFallbackStatuses[profile.userId],
+                        // Prefer a live WebSocket online signal. If the socket has
+                        // a stale/offline value while the API confirms online, keep
+                        // the profile marked Online; otherwise use live status first.
+                        onlineStatus = when {
+                            liveStatuses[profile.userId]?.isOnline == true ->
+                                liveStatuses[profile.userId]
+                            apiFallbackStatuses[profile.userId]?.isOnline == true ->
+                                apiFallbackStatuses[profile.userId]
+                            liveStatuses[profile.userId] != null ->
+                                liveStatuses[profile.userId]
+                            else -> apiFallbackStatuses[profile.userId]
+                        },
                         currentTimeMillis = currentTimeMillis,
 
                         onProfileClick = {
@@ -532,6 +584,26 @@ fun HomeScreen(
                         }
                     )
                 }
+
+                if (isLoadingMore) {
+                    item(
+                        key = "pagination_loading_indicator",
+                        span = { GridItemSpan(maxLineSpan) }
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 18.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(26.dp),
+                                strokeWidth = 2.dp,
+                                color = BhaktMaroon
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -557,55 +629,53 @@ private enum class HomeQuickFilter {
 private fun HomeFilterChip(
     text: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showOnlineDot: Boolean = false,
+    showLocationIcon: Boolean = false
 ) {
-
-    Box(
+    Row(
         modifier = Modifier
-            .clip(
-                RoundedCornerShape(10.dp)
-            )
-            .background(
-                if (selected) {
-                    BhaktMaroon
-                } else {
-                    SurfaceBackground
-                }
-            )
+            .clip(CircleShape)
+            .background(if (selected) BhaktMaroon else Color.White)
             .border(
                 width = 1.dp,
-                color =
-                    if (selected) {
-                        BhaktMaroon
-                    } else {
-                        BorderColor
-                    },
-                shape =
-                    RoundedCornerShape(10.dp)
+                color = if (selected) BhaktMaroon else Color(0xFFEBD6C9),
+                shape = CircleShape
             )
-            .clickable {
-                onClick()
-            }
-            .padding(
-                horizontal = 15.dp,
-                vertical = 8.dp
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
             )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-
+        if (showOnlineDot) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF16845B))
+            )
+        }
+        if (showLocationIcon) {
+            Icon(
+                imageVector = Icons.Outlined.LocationOn,
+                contentDescription = null,
+                tint = if (selected) Color.White else Color(0xFF2A1218),
+                modifier = Modifier.size(17.dp)
+            )
+        }
         Text(
             text = text,
-            color =
-                if (selected) {
-                    SurfaceBackground
-                } else {
-                    TextSecondary
-                },
+            color = if (selected) Color.White else Color(0xFF2A1218),
             fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1
         )
     }
 }
-
 
 // =============================================================
 // PROFILE CARD
@@ -622,367 +692,231 @@ private fun ProfileCard(
     isShortlistActionLoading: Boolean,
     onSendInterest: () -> Unit
 ) {
-
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(
-                RoundedCornerShape(18.dp)
+            .aspectRatio(0.78f)
+            .shadow(4.dp, RoundedCornerShape(26.dp))
+            .clip(RoundedCornerShape(26.dp))
+            .background(Color(0xFF3F0A1A))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onProfileClick
             )
-            .background(SurfaceBackground)
-            .border(
-                width = 1.dp,
-                color = BorderColor,
-                shape = RoundedCornerShape(18.dp)
-            )
-            .clickable {
-                onProfileClick()
-            }
     ) {
-
-        // ---------------------------------------------------------
-        // IMAGE
-        // ---------------------------------------------------------
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.82f)
-                .clip(
-                    RoundedCornerShape(
-                        topStart = 18.dp,
-                        topEnd = 18.dp
-                    )
-                )
-                .background(BhaktMaroonLight)
-        ) {
-
-            if (
-                profile.profilePhoto.isNullOrBlank()
+        if (!profile.profilePhoto.isNullOrBlank()) {
+            AsyncImage(
+                model = ProfilePhotoUtils.resolveUrl(profile.profilePhoto),
+                contentDescription = profile.fullName,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(BhaktMaroonLight),
+                contentAlignment = Alignment.Center
             ) {
-
-                Box(
-                    modifier =
-                        Modifier.fillMaxSize(),
-                    contentAlignment =
-                        Alignment.Center
-                ) {
-
-                    Icon(
-                        imageVector =
-                            Icons.Outlined.FavoriteBorder,
-                        contentDescription = null,
-                        tint = BhaktMaroon,
-                        modifier =
-                            Modifier.size(42.dp)
-                    )
-                }
-
-            } else {
-
-                AsyncImage(
-                    model = ProfilePhotoUtils.resolveUrl(profile.profilePhoto),
-                    contentDescription = profile.fullName,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                Icon(
+                    imageVector = Icons.Outlined.FavoriteBorder,
+                    contentDescription = null,
+                    tint = BhaktMaroon,
+                    modifier = Modifier.size(42.dp)
                 )
             }
         }
 
-        // ---------------------------------------------------------
-        // CARD CONTENT
-        // ---------------------------------------------------------
-
-        Column(
+        // Darken the lower image area so the profile details remain legible.
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = 10.dp,
-                    end = 10.dp,
-                    top = 10.dp,
-                    bottom = 12.dp
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.Transparent,
+                            0.38f to Color.Transparent,
+                            0.64f to Color(0x330F0308),
+                            1.0f to Color(0xF03F0A1A)
+                        )
+                    )
                 )
-        ) {
+        )
 
-            Text(
-                text = profile.fullName.ifBlank {
-                    "Bhakt Milan Member"
-                },
-                color = TextPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis,
-                modifier =
-                    Modifier.fillMaxWidth()
-            )
+        val isOnline = onlineStatus?.isOnline == true
 
-            // Prefer the live WebSocket status; use the API value only as a fallback.
-            // If neither source has a record yet, show unknown/checking status.
-            Spacer(modifier = Modifier.height(5.dp))
+        // Calculate minutes locally from lastSeen first (same UI-side approach
+        // as before); use the API minutesAgo only if lastSeen is unavailable.
+        val minutesSinceLastSeen = minutesSinceLastSeen(
+            lastSeen = onlineStatus?.lastSeen,
+            nowMillis = currentTimeMillis
+        ) ?: onlineStatus?.minutesAgo?.toLong()
 
+        // Rules:
+        // 1) Online users always show "Online".
+        // 2) Offline users show "Recently Active" only for 1..20 minutes ago.
+        // 3) Older/offline/unknown users have no status badge at all.
+        val showRecentlyActive = !isOnline &&
+                minutesSinceLastSeen != null &&
+                minutesSinceLastSeen in 0L..20L
+
+        if (isOnline || showRecentlyActive) {
             Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 8.dp, top = 9.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isOnline) Color(0xFF16845B)
+                        else Color(0xCC2A1218)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(
-                            when {
-                                onlineStatus == null -> Color.LightGray
-                                onlineStatus.isOnline -> Color(0xFF2EAD63)
-                                else -> Color.Gray
-                            }
-                        )
-                )
-
-                val lastSeenLabel = formatLastSeen(
-                    lastSeen = onlineStatus?.lastSeen,
-                    nowMillis = currentTimeMillis
-                )
-
-                // API minutesAgo is a fallback for missing/unparseable timestamps.
-                // When lastSeen is available, calculate elapsed time locally.
-                val offlineLabel = lastSeenLabel ?: onlineStatus?.minutesAgo?.let { minutes ->
-                    when {
-                        minutes <= 0 -> "Just now"
-                        minutes == 1 -> "1 min ago"
-                        minutes < 60 -> "$minutes min ago"
-                        minutes < 1_440 -> {
-                            val hours = minutes / 60
-                            if (hours == 1) "1 hour ago" else "$hours hours ago"
-                        }
-                        else -> {
-                            val days = minutes / 1_440
-                            if (days == 1) "1 day ago" else "$days days ago"
-                        }
-                    }
-                }
-
-                val statusText = when {
-                    onlineStatus == null -> "Checking status…"
-                    onlineStatus.isOnline -> "Online"
-                    offlineLabel != null -> "Offline · $offlineLabel"
-                    else -> "Offline"
+                if (isOnline) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                    )
+                } else {
+                    Text(
+                        text = "◷",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 Text(
-                    text = statusText,
-                    color = when {
-                        onlineStatus == null -> TextMuted
-                        onlineStatus.isOnline -> Color(0xFF2EAD63)
-                        else -> TextSecondary
-                    },
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = if (isOnline) "Online" else "Recently Active",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
                 )
             }
+        }
 
-            Spacer(
-                modifier = Modifier.height(4.dp)
-            )
+        // Shortlist action remains connected to the existing ViewModel.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 8.dp, end = 8.dp)
+                .size(34.dp)
+                .shadow(3.dp, CircleShape)
+                .clip(CircleShape)
+                .background(Color(0xFFFDF9F7))
+                .clickable(
+                    enabled = !isShortlistActionLoading,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onShortlistClick
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isShortlistActionLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = BhaktMaroon
+                )
+            } else {
+                Icon(
+                    imageVector = if (isShortlisted) Icons.Filled.Star else Icons.Outlined.Star,
+                    contentDescription = if (isShortlisted) {
+                        "Remove from shortlist"
+                    } else {
+                        "Add to shortlist"
+                    },
+                    tint = if (isShortlisted) Color(0xFFC99A35) else Color(0xFF2A1218),
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+        }
 
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(start = 10.dp, end = 10.dp, bottom = 10.dp)
+        ) {
             Text(
-                text =
-                    buildAgeLocationText(profile),
-                color = TextSecondary,
-                fontSize = 12.sp,
+                text = profile.fullName.ifBlank { "Bhakt Milan Member" },
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(18.dp)
+                overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(
-                modifier = Modifier.height(4.dp)
-            )
+            Spacer(Modifier.height(3.dp))
 
-            Text(
-                text =
-                    if (
-                        profile.sampradaya.isBlank()
-                    ) {
-                        "Sampradaya not specified"
+            // Keep age/location on the left and Sampradaya on the right.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = buildAgeLocationText(profile),
+                    color = Color(0xFFF9EDEA),
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Text(
+                    text = if (profile.sampradaya.isBlank()) {
+                        "Other"
                     } else {
                         profile.sampradaya
                     },
-                color = BhaktMaroon,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis,
+                    color = Color(0xFFF6C9D5),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(Modifier.height(7.dp))
+
+            Button(
+                onClick = onSendInterest,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(18.dp)
-            )
-
-            Spacer(
-                modifier = Modifier.height(11.dp)
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(DividerColor)
-            )
-
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
-
-            // =====================================================
-            // SHORTLIST + INTEREST ACTIONS
-            // =====================================================
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(38.dp),
-                horizontalArrangement =
-                    Arrangement.spacedBy(6.dp)
+                    .height(37.dp),
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = BhaktMaroon
+                ),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
             ) {
-
-                // -------------------------------------------------
-                // SHORTLIST
-                // -------------------------------------------------
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize()
-                        .clip(
-                            RoundedCornerShape(10.dp)
-                        )
-                        .background(
-                            SurfaceBackground
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = BorderColor,
-                            shape =
-                                RoundedCornerShape(10.dp)
-                        )
-                        .clickable(
-                            enabled =
-                                !isShortlistActionLoading
-                        ) {
-                            onShortlistClick()
-                        },
-                    contentAlignment =
-                        Alignment.Center
-                ) {
-
-                    if (
-                        isShortlistActionLoading
-                    ) {
-
-                        CircularProgressIndicator(
-                            modifier =
-                                Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = BhaktMaroon
-                        )
-
-                    } else {
-
-                        Icon(
-                            imageVector =
-                                if (isShortlisted) {
-                                    Icons.Filled.Star
-                                } else {
-                                    Icons.Outlined.Star
-                                },
-                            contentDescription =
-                                if (isShortlisted) {
-                                    "Remove from shortlist"
-                                } else {
-                                    "Add to shortlist"
-                                },
-                            tint =
-                                if (isShortlisted) {
-                                    PremiumGoldDark
-                                } else {
-                                    TextSecondary
-                                },
-                            modifier =
-                                Modifier.size(17.dp)
-                        )
-                    }
-                }
-
-                // -------------------------------------------------
-                // INTEREST
-                // -------------------------------------------------
-
-                Button(
-                    modifier =
-                        Modifier
-                            .weight(2f)
-                            .fillMaxSize(),
-
-                    onClick = {
-                        onSendInterest()
-                    },
-
-                    shape =
-                        RoundedCornerShape(10.dp),
-
-                    colors =
-                        ButtonDefaults.outlinedButtonColors(
-                            containerColor =
-                                SurfaceBackground,
-                            contentColor =
-                                BhaktMaroon
-                        ),
-
-                    border =
-                        androidx.compose.foundation.BorderStroke(
-                            width = 1.dp,
-                            color = BhaktMaroon
-                        ),
-
-                    contentPadding =
-                        PaddingValues(
-                            horizontal = 8.dp
-                        )
-                ) {
-
-                    Icon(
-                        imageVector =
-                            Icons.Outlined.FavoriteBorder,
-                        contentDescription =
-                            "Send Interest",
-                        tint = BhaktMaroon,
-                        modifier =
-                            Modifier.size(16.dp)
-                    )
-
-                    Spacer(
-                        modifier =
-                            Modifier.width(5.dp)
-                    )
-
-                    Text(
-                        text = "Interest",
-                        color = BhaktMaroon,
-                        fontSize = 12.sp,
-                        fontWeight =
-                            FontWeight.SemiBold
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Outlined.FavoriteBorder,
+                    contentDescription = "Send Interest",
+                    tint = BhaktMaroon,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = "Interest",
+                    color = BhaktMaroon,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
 }
-
 
 // =============================================================
 // AGE + LOCATION
@@ -1078,7 +1012,7 @@ private fun EmptyProfilesState(
                     if (searchQuery.isBlank()) {
                         "There are no profiles available right now."
                     } else {
-                        "Try a different name, city or Sampradaya."
+                        "Try searching for a different Sampradaya."
                     },
                 color = TextSecondary,
                 fontSize = 13.sp,
@@ -1088,6 +1022,49 @@ private fun EmptyProfilesState(
             )
         }
     }
+}
+
+
+/**
+ * Returns elapsed whole minutes from an ISO-8601 last-seen timestamp.
+ * The UI refreshes currentTimeMillis every minute, so this value stays fresh
+ * while Home remains visible. Returns null when the timestamp cannot be parsed.
+ */
+private fun minutesSinceLastSeen(
+    lastSeen: String?,
+    nowMillis: Long
+): Long? {
+    if (lastSeen.isNullOrBlank()) return null
+
+    val timestamp = lastSeen.trim()
+    val normalizedTimestamp = timestamp.replace(
+        Regex("""\.(\d{3})\d+(?=[Zz]|[+-]\d{2}:?\d{2}$)"""),
+        ".$1"
+    )
+
+    val patterns = listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSX",
+        "yyyy-MM-dd'T'HH:mm:ssX"
+    )
+
+    for (pattern in patterns) {
+        try {
+            val formatter = SimpleDateFormat(pattern, Locale.US).apply {
+                isLenient = false
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val position = ParsePosition(0)
+            val candidate = formatter.parse(normalizedTimestamp, position)
+            if (candidate != null && position.index == normalizedTimestamp.length) {
+                return ((nowMillis - candidate.time).coerceAtLeast(0L)) / 60_000L
+            }
+        } catch (_: IllegalArgumentException) {
+            // Try the next supported ISO-8601 pattern.
+        }
+    }
+    return null
 }
 
 

@@ -97,9 +97,10 @@ fun ReceivedRequests(
             Text(
                 text = "Requests",
                 modifier = Modifier.weight(1f),
-                color = TextPrimary,
-                fontSize = 25.sp,
-                fontWeight = FontWeight.Bold
+                color = BhaktMaroon,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.4).sp
             )
 
             IconButton(onClick = {}) {
@@ -247,7 +248,7 @@ private fun ReceivedRequestCard(
                 color = BorderColor,
                 shape = RoundedCornerShape(18.dp)
             )
-            .padding(11.dp)
+            .padding(9.dp)
     ) {
         // PROFILE ROW
         Row(
@@ -258,7 +259,7 @@ private fun ReceivedRequestCard(
         ) {
             ProfilePhoto(imageUrl = request.profilePhoto)
 
-            Spacer(modifier = Modifier.width(11.dp))
+            Spacer(modifier = Modifier.width(9.dp))
 
             Column(
                 modifier = Modifier.weight(1f)
@@ -284,7 +285,7 @@ private fun ReceivedRequestCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(3.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text = request.profileId,
@@ -293,7 +294,7 @@ private fun ReceivedRequestCard(
                     fontWeight = FontWeight.Medium
                 )
 
-                Spacer(modifier = Modifier.height(5.dp))
+                Spacer(modifier = Modifier.height(3.dp))
 
                 Text(
                     text = "${request.age} Years • ${request.city}, ${request.state}",
@@ -303,7 +304,7 @@ private fun ReceivedRequestCard(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(5.dp))
+                Spacer(modifier = Modifier.height(3.dp))
 
                 StatusBadge(status = request.status)
             }
@@ -315,28 +316,21 @@ private fun ReceivedRequestCard(
             )
         }
 
+        // Show a message only when the API actually provides one.
+        // Status is already visible in the badge above, so don't repeat it.
+        if (!request.message.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Message: ${request.message}",
+                color = TextSecondary,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
         Spacer(modifier = Modifier.height(8.dp))
-
-        // STATUS + MESSAGE
-        Text(
-            text = "Status: ${request.status}",
-            color = TextSecondary,
-            fontSize = 11.sp
-        )
-
-        Spacer(modifier = Modifier.height(3.dp))
-
-        Text(
-            text = "Message: ${
-                request.message ?: "Hi, I liked your profile."
-            }",
-            color = TextSecondary,
-            fontSize = 11.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
 
         // ACTION BUTTONS
         Row(
@@ -347,7 +341,7 @@ private fun ReceivedRequestCard(
                 onClick = onAccept,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(9.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
+                contentPadding = PaddingValues(vertical = 6.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = SuccessGreen,
                     contentColor = Color.White
@@ -372,7 +366,7 @@ private fun ReceivedRequestCard(
                 onClick = onReject,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(9.dp),
-                contentPadding = PaddingValues(vertical = 8.dp)
+                contentPadding = PaddingValues(vertical = 6.dp)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
@@ -406,8 +400,8 @@ private fun ProfilePhoto(
 
     Box(
         modifier = Modifier
-            .size(72.dp)
-            .clip(CircleShape)
+            .size(64.dp)
+            .clip(RoundedCornerShape(13.dp))
             .background(BhaktMaroonLight),
         contentAlignment = Alignment.Center
     ) {
@@ -417,7 +411,7 @@ private fun ProfilePhoto(
                 contentDescription = "Profile photo",
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(CircleShape),
+                    .clip(RoundedCornerShape(13.dp)),
                 contentScale = ContentScale.Crop
             )
         } else {

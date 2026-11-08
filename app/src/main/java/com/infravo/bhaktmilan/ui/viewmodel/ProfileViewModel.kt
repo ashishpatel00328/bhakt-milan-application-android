@@ -21,6 +21,16 @@ class ProfileViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private var nextProfilesUrl: String? = null
+    private var isFirstPageLoading = false
+
+    private var currentGender: String? = null
+    private var currentNew: Boolean? = null
+    private var currentActiveNow: Boolean? = null
+
     // Online status cache: userId -> online status response
     private val _onlineStatuses =
         MutableStateFlow<Map<Int, OnlineStatusResponse>>(emptyMap())
@@ -41,71 +51,114 @@ class ProfileViewModel @Inject constructor(
         new: Boolean? = null,
         activeNow: Boolean? = null
     ) {
+        if (isFirstPageLoading) return
+
+        isFirstPageLoading = true
+
+        currentGender = gender
+        currentNew = new
+        currentActiveNow = activeNow
+
+        nextProfilesUrl = null
+        _isLoadingMore.value = false
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
                 error = null
             )
 
-            when (
-                val result = repository.getProfiles(
-                    page = page,
-                    gender = gender,
-                    new = new,
-                    activeNow = activeNow
+            try {
+                when (
+                    val result = repository.getProfiles(
+                        pageSize = 20,
+                        gender = gender,
+                        new = new,
+                        activeNow = activeNow
+                    )
+                ) {
+                    is NetworkResult.Success -> {
+                        val pageData = result.data.data
+                        val mappedProfiles =
+                            pageData.results.map { it.toUiModel() }
+
+                        nextProfilesUrl = pageData.next
+
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            profiles = mappedProfiles.distinctBy {
+                                it.profileId
+                            },
+                            error = null
+                        )
+                    }
+
+                    is NetworkResult.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
+
+                    is NetworkResult.Loading -> Unit
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Unable to load profiles."
                 )
-            ) {
-                is NetworkResult.Success -> {
-                    val apiProfiles = result.data.data.results
-
-                    android.util.Log.d(
-                        "PROFILE_LIST_DEBUG",
-                        "API SUCCESS: raw profile count=${apiProfiles.size}"
-                    )
-
-                    val mappedProfiles = apiProfiles.map { it.toUiModel() }
-
-                    android.util.Log.d(
-                        "PROFILE_LIST_DEBUG",
-                        "MAPPED count=${mappedProfiles.size}"
-                    )
-
-                    android.util.Log.d(
-                        "PROFILE_LIST_DEBUG",
-                        "Mapped profile IDs=${
-                            mappedProfiles.take(5).map { it.profileId }
-                        }"
-                    )
-
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        profiles = mappedProfiles,
-                        error = null
-                    )
-
-                    android.util.Log.d(
-                        "PROFILE_LIST_DEBUG",
-                        "STATE updated: profiles=${_uiState.value.profiles.size}"
-                    )
-                }
-
-                is NetworkResult.Error -> {
-                    android.util.Log.e(
-                        "PROFILE_LIST_DEBUG",
-                        "API ERROR: ${result.message}"
-                    )
-
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message
-                    )
-                }
-
-                is NetworkResult.Loading -> Unit
+            } finally {
+                isFirstPageLoading = false
             }
         }
     }
 
+    fun loadNextProfiles() {
+        val url = nextProfilesUrl ?: return
+
+        if (isFirstPageLoading || _isLoadingMore.value) return
+
+        _isLoadingMore.value = true
+
+        viewModelScope.launch {
+            try {
+                when (val result = repository.getNextProfiles(url)) {
+                    is NetworkResult.Success -> {
+                        val pageData = result.data.data
+                        val newProfiles =
+                            pageData.results.map { it.toUiModel() }
+
+                        val existingProfiles = _uiState.value.profiles
+
+                        _uiState.value = _uiState.value.copy(
+                            profiles = (
+                                    existingProfiles + newProfiles
+                                    ).distinctBy { it.profileId },
+                            error = null
+                        )
+
+                        // Null means the backend has no more pages.
+                        nextProfilesUrl = pageData.next
+                    }
+
+                    is NetworkResult.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            error = result.message
+                        )
+                        // Keep the URL so a later scroll can retry.
+                    }
+
+                    is NetworkResult.Loading -> Unit
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.message ?: "Unable to load more profiles."
+                )
+            } finally {
+                _isLoadingMore.value = false
+            }
+        }
+    }
     /**
      * Fetch online status for an individual user.
      * Presence API errors do not affect the profile list.

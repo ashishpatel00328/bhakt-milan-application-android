@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -115,8 +116,9 @@ fun RequestsScreen(
 
             Text(
                 text = "Requests",
-                color = TextPrimary,
+                color = BhaktMaroon,
                 fontSize = 27.sp,
+                fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold
             )
 
@@ -150,6 +152,8 @@ fun RequestsScreen(
 
         RequestTabs(
             selectedTab = selectedTab,
+            receivedCount = interactionState.receivedInterests.size,
+            sentCount = interactionState.sentInterests.size,
             onTabSelected = {
                 selectedTab = it
             }
@@ -272,51 +276,38 @@ private enum class RequestTab {
 @Composable
 private fun RequestTabs(
     selectedTab: RequestTab,
+    receivedCount: Int,
+    sentCount: Int,
     onTabSelected: (RequestTab) -> Unit
 ) {
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .clip(
-                RoundedCornerShape(12.dp)
-            )
-            .background(
-                SurfaceBackground
-            )
+            .clip(RoundedCornerShape(50.dp))
+            .background(Color(0xFFFFFBF6))
             .border(
                 width = 1.dp,
-                color = BorderColor,
-                shape = RoundedCornerShape(12.dp)
+                color = BorderColor.copy(alpha = 0.55f),
+                shape = RoundedCornerShape(50.dp)
             )
-            .padding(3.dp)
+            .padding(3.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-
         RequestTabItem(
             text = "Received",
-            selected =
-                selectedTab ==
-                        RequestTab.RECEIVED,
+            count = receivedCount,
+            selected = selectedTab == RequestTab.RECEIVED,
             modifier = Modifier.weight(1f),
-            onClick = {
-                onTabSelected(
-                    RequestTab.RECEIVED
-                )
-            }
+            onClick = { onTabSelected(RequestTab.RECEIVED) }
         )
 
         RequestTabItem(
             text = "Sent",
-            selected =
-                selectedTab ==
-                        RequestTab.SENT,
+            count = sentCount,
+            selected = selectedTab == RequestTab.SENT,
             modifier = Modifier.weight(1f),
-            onClick = {
-                onTabSelected(
-                    RequestTab.SENT
-                )
-            }
+            onClick = { onTabSelected(RequestTab.SENT) }
         )
     }
 }
@@ -325,51 +316,52 @@ private fun RequestTabs(
 @Composable
 private fun RequestTabItem(
     text: String,
+    count: Int,
     selected: Boolean,
     modifier: Modifier,
     onClick: () -> Unit
 ) {
-
-    Box(
+    Row(
         modifier = modifier
-            .clip(
-                RoundedCornerShape(9.dp)
-            )
+            .height(38.dp)
+            .clip(RoundedCornerShape(50.dp))
             .background(
-                if (selected) {
-                    BhaktMaroon
-                } else {
-                    Color.Transparent
-                }
+                if (selected) BhaktMaroon else Color.Transparent
             )
-            .clickable {
-                onClick()
-            }
-            .padding(
-                vertical = 10.dp
-            ),
-        contentAlignment = Alignment.Center
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-
         Text(
             text = text,
-            color =
-                if (selected) {
-                    SurfaceBackground
-                } else {
-                    TextPrimary
-                },
-            fontSize = 14.sp,
-            fontWeight =
-                if (selected) {
-                    FontWeight.Bold
-                } else {
-                    FontWeight.Medium
-                }
+            color = if (selected) Color.White else TextPrimary,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1
         )
+
+        Spacer(modifier = Modifier.width(5.dp))
+
+        Box(
+            modifier = Modifier
+                .size(18.dp)
+                .clip(RoundedCornerShape(50.dp))
+                .background(
+                    if (selected) Color.White else Color(0xFFE7E4E0)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = count.toString(),
+                color = if (selected) BhaktMaroon else TextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+        }
     }
 }
-
 
 // ===============================================================
 // REQUEST CARD

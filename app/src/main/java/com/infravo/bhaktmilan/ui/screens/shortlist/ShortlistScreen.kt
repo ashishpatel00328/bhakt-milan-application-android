@@ -2,6 +2,7 @@ package com.infravo.bhaktmilan.ui.screens.shortlist
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,8 +39,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,8 +88,9 @@ fun ShortlistScreen(
         ) {
             Text(
                 text = "Shortlist",
-                color = TextPrimary,
+                color = BhaktMaroon,
                 fontSize = 27.sp,
+                fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -268,6 +272,11 @@ private fun ShortlistCard(
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(BhaktMaroonLight)
+                        .border(
+                            width = 1.dp,
+                            color = PremiumGold.copy(alpha = 0.65f),
+                            shape = CircleShape
+                        )
                         .clickable(enabled = !isRemoveLoading) {
                             onRemoveClick()
                         },
@@ -288,37 +297,32 @@ private fun ShortlistCard(
                             },
                             contentDescription = "Remove from shortlist",
                             tint = PremiumGold,
-                            modifier = Modifier.size(25.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
 
                 // INTEREST BUTTON
+
                 Button(
                     modifier = Modifier
                         .width(92.dp)
                         .height(36.dp),
                     onClick = onInterestClick,
                     enabled = !isRemoveLoading,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(50.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SurfaceBackground,
-                        contentColor = BhaktMaroon,
-                        disabledContainerColor = SurfaceBackground,
-                        disabledContentColor = BhaktMaroon
+                        containerColor = BhaktMaroon,
+                        contentColor = Color.White,
+                        disabledContainerColor = BhaktMaroon.copy(alpha = 0.6f),
+                        disabledContentColor = Color.White
                     ),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = BhaktMaroon
-                    ),
-                    contentPadding = PaddingValues(
-                        horizontal = 6.dp
-                    )
+                    contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.FavoriteBorder,
                         contentDescription = "Interest",
-                        tint = BhaktMaroon,
+                        tint = Color.White,
                         modifier = Modifier.size(15.dp)
                     )
 
@@ -326,11 +330,12 @@ private fun ShortlistCard(
 
                     Text(
                         text = "Interest",
-                        color = BhaktMaroon,
+                        color = Color.White,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
+
             }
         }
     }

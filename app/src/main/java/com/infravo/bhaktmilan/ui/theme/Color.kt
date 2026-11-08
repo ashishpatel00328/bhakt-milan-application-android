@@ -42,7 +42,7 @@ val PremiumGoldLight = Color(0xFFFFF1D6)
 // =========================================================
 
 // Main app background
-val AppBackground = Color(0xFFFFF9F0)
+val AppBackground = Color(0xFFFAF9F9)
 
 // Main card / surface background
 val SurfaceBackground = Color(0xFFFFFFFF)

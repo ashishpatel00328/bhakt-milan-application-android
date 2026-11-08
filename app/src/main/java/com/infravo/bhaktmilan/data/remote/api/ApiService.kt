@@ -37,6 +37,8 @@ import retrofit2.http.DELETE
 import okhttp3.MultipartBody
 import retrofit2.http.Multipart
 import retrofit2.http.Part
+import retrofit2.http.Url
+
 
 interface ApiService {
 
@@ -77,10 +79,15 @@ interface ApiService {
 
     @GET("profile/profiles/")
     suspend fun getProfiles(
-        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 20,
         @Query("gender") gender: String? = null,
         @Query("new") new: Boolean? = null,
         @Query("active_now") activeNow: Boolean? = null
+    ): Response<ProfileListResponse>
+
+    @GET
+    suspend fun getNextProfiles(
+        @Url nextUrl: String
     ): Response<ProfileListResponse>
 
     @GET("profile/profiles/{profileId}/")
